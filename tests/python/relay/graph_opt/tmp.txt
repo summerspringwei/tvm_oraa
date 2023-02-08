@@ -1,0 +1,216 @@
+2023-02-03 22:02:54.466142: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F AVX512_VNNI FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-02-03 22:02:54.582558: I tensorflow/core/util/util.cc:169] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2023-02-03 22:02:54.613347: E tensorflow/stream_executor/cuda/cuda_blas.cc:2981] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2023-02-03 22:02:55.232129: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libnvinfer.so.7'; dlerror: libnvinfer.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /home/xiachunwei/Software/pytf2.4/lib/python3.7/site-packages/torch/lib:/home2/xiachunwei/Software/TensorRT/build/out:/home2/xiachunwei/Software/TensorRT-8.2.3.0/targets/x86_64-linux-gnu/lib:/usr/local/cudnn-11.2/lib64:/usr/local/cuda-11.7/lib64:/usr/local/cuda-11.7/targets/x86_64-linux/lib:/usr/local/cuda-11.7/extras/CUPTI/lib64:/home2/xiachunwei/Software/tvm0.11dev0/tvm/build:
+2023-02-03 22:02:55.232221: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libnvinfer_plugin.so.7'; dlerror: libnvinfer_plugin.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /home/xiachunwei/Software/pytf2.4/lib/python3.7/site-packages/torch/lib:/home2/xiachunwei/Software/TensorRT/build/out:/home2/xiachunwei/Software/TensorRT-8.2.3.0/targets/x86_64-linux-gnu/lib:/usr/local/cudnn-11.2/lib64:/usr/local/cuda-11.7/lib64:/usr/local/cuda-11.7/targets/x86_64-linux/lib:/usr/local/cuda-11.7/extras/CUPTI/lib64:/home2/xiachunwei/Software/tvm0.11dev0/tvm/build:
+2023-02-03 22:02:55.232230: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Cannot dlopen some TensorRT libraries. If you would like to use Nvidia GPU with TensorRT, please make sure the missing libraries mentioned above are installed properly.
+2023-02-03 22:02:58.598821: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F AVX512_VNNI FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-02-03 22:02:59.279622: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1616] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 78975 MB memory:  -> device: 0, name: NVIDIA A100 80GB PCIe, pci bus id: 0000:d8:00.0, compute capability: 8.0
+2023-02-03 22:03:00.492200: I tensorflow/core/grappler/devices.cc:66] Number of eligible GPUs (core count >= 8, compute capability >= 0.0): 1
+2023-02-03 22:03:00.492322: I tensorflow/core/grappler/clusters/single_machine.cc:358] Starting new session
+2023-02-03 22:03:00.496497: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1616] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 78975 MB memory:  -> device: 0, name: NVIDIA A100 80GB PCIe, pci bus id: 0000:d8:00.0, compute capability: 8.0
+/home/xiachunwei/Software/anaconda3/lib/python3.7/site-packages/pandas/compat/_optional.py:138: UserWarning: Pandas requires version '2.7.0' or newer of 'numexpr' (version '2.6.8' currently installed).
+  warnings.warn(msg, UserWarning)
+2023-02-03 22:03:00,527 tf_utils.py:37 ------------------------------------------------------------
+2023-02-03 22:03:00,527 tf_utils.py:38 Frozen model layers: 
+2023-02-03 22:03:00,527 tf_utils.py:40 x
+2023-02-03 22:03:00,527 tf_utils.py:40 model/tf.reshape/Reshape/shape
+2023-02-03 22:03:00,527 tf_utils.py:40 model/tf.compat.v1.transpose/transpose/perm
+2023-02-03 22:03:00,527 tf_utils.py:40 model/tf.reshape_1/Reshape/shape
+2023-02-03 22:03:00,527 tf_utils.py:40 model/tf.reshape/Reshape
+2023-02-03 22:03:00,527 tf_utils.py:40 model/tf.compat.v1.transpose/transpose
+2023-02-03 22:03:00,527 tf_utils.py:40 model/tf.reshape_1/Reshape
+2023-02-03 22:03:00,527 tf_utils.py:40 Identity
+2023-02-03 22:03:00,527 tf_utils.py:41 ------------------------------------------------------------
+2023-02-03 22:03:00,527 tf_utils.py:42 Frozen model inputs: 
+2023-02-03 22:03:00,527 tf_utils.py:43 [<tf.Tensor 'x:0' shape=(None, 1, 16, 56, 56) dtype=float32>]
+2023-02-03 22:03:00,527 tf_utils.py:44 Frozen model outputs: 
+2023-02-03 22:03:00,527 tf_utils.py:45 [<tf.Tensor 'Identity:0' shape=(1, 4, 112, 112) dtype=float32>]
+2.10.0
+/tmp/intel_tvm/models/tf_reshape_transpose_reshape_s1,16,56,56.pb
+node {
+  name: "x"
+  op: "Placeholder"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "shape"
+    value {
+      shape {
+        dim {
+          size: -1
+        }
+        dim {
+          size: 1
+        }
+        dim {
+          size: 16
+        }
+        dim {
+          size: 56
+        }
+        dim {
+          size: 56
+        }
+      }
+    }
+  }
+}
+node {
+  name: "model/tf.reshape/Reshape/shape"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_INT32
+        tensor_shape {
+          dim {
+            size: 6
+          }
+        }
+        tensor_content: "\001\000\000\000\004\000\000\000\002\000\000\000\002\000\000\0008\000\000\0008\000\000\000"
+      }
+    }
+  }
+}
+node {
+  name: "model/tf.compat.v1.transpose/transpose/perm"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_INT32
+        tensor_shape {
+          dim {
+            size: 6
+          }
+        }
+        tensor_content: "\000\000\000\000\001\000\000\000\004\000\000\000\002\000\000\000\005\000\000\000\003\000\000\000"
+      }
+    }
+  }
+}
+node {
+  name: "model/tf.reshape_1/Reshape/shape"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_INT32
+        tensor_shape {
+          dim {
+            size: 4
+          }
+        }
+        tensor_content: "\001\000\000\000\004\000\000\000p\000\000\000p\000\000\000"
+      }
+    }
+  }
+}
+node {
+  name: "model/tf.reshape/Reshape"
+  op: "Reshape"
+  input: "x"
+  input: "model/tf.reshape/Reshape/shape"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "Tshape"
+    value {
+      type: DT_INT32
+    }
+  }
+}
+node {
+  name: "model/tf.compat.v1.transpose/transpose"
+  op: "Transpose"
+  input: "model/tf.reshape/Reshape"
+  input: "model/tf.compat.v1.transpose/transpose/perm"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "Tperm"
+    value {
+      type: DT_INT32
+    }
+  }
+}
+node {
+  name: "model/tf.reshape_1/Reshape"
+  op: "Reshape"
+  input: "model/tf.compat.v1.transpose/transpose"
+  input: "model/tf.reshape_1/Reshape/shape"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "Tshape"
+    value {
+      type: DT_INT32
+    }
+  }
+}
+node {
+  name: "Identity"
+  op: "Identity"
+  input: "model/tf.reshape_1/Reshape"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+versions {
+  producer: 1205
+}
+
+fn (%x: Tensor[(?, 1, 16, 56, 56), float32]) {
+  %0 = reshape(%x, newshape=[1, 4, 2, 2, 56, 56]) /* span=model/tf.reshape/Reshape:0:0 */;
+  %1 = transpose(%0, axes=[0, 1, 4, 2, 5, 3]) /* span=model/tf.compat.v1.transpose/transpose:0:0 */;
+  reshape(%1, newshape=[1, 4, 112, 112]) /* span=model/tf.reshape_1/Reshape:0:0 */
+}
+[90;03m# from tvm.script import tir as T[39;00m
+[95;03m@tvm[39;00m[35;01m.[39;00mscript[35;01m.[39;00mir_module
+[32;01mclass[39;00m [34;01mModule[39;00m:
+    
+    
+
