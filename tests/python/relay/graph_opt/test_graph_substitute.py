@@ -156,12 +156,12 @@ def test_addN():
     """
 
     def before():
-        a = relay.var("a", shape=(1, 16, 56, 56))
-        b = relay.var("b", shape=(1, 16, 56, 56))
-        c = relay.var("c", shape=(1, 16, 56, 56))
-        d = relay.var("d", shape=(1, 16, 56, 56))
-        e = relay.var("e", shape=(1, 16, 56, 56))
-        f = relay.var("f", shape=(1, 16, 56, 56))
+        a = relay.var("a", shape=(1, 16, 56, 56),dtype="int8")
+        b = relay.var("b", shape=(1, 16, 56, 56),dtype="int8")
+        c = relay.var("c", shape=(1, 16, 56, 56),dtype="int8")
+        d = relay.var("d", shape=(1, 16, 56, 56),dtype="int8")
+        e = relay.var("e", shape=(1, 16, 56, 56),dtype="int8")
+        f = relay.var("f", shape=(1, 16, 56, 56),dtype="int8")
 
         r = a + b + c + d + e + f
 
@@ -169,31 +169,31 @@ def test_addN():
 
     def expect():
         # Declare add4 function
-        a = relay.var("a", shape=(1, 16, 56, 56))
-        b = relay.var("b", shape=(1, 16, 56, 56))
-        c = relay.var("c", shape=(1, 16, 56, 56))
-        d = relay.var("d", shape=(1, 16, 56, 56))
+        a = relay.var("a", shape=(1, 16, 56, 56),dtype="int8")
+        b = relay.var("b", shape=(1, 16, 56, 56),dtype="int8")
+        c = relay.var("c", shape=(1, 16, 56, 56),dtype="int8")
+        d = relay.var("d", shape=(1, 16, 56, 56),dtype="int8")
         add_4 = a + b + c + d
         func_add_4 = relay.Function([a, b, c, d], add_4)
         func_add_4 = func_add_4.with_attr("Composite", "add4")
         func_add_4 = func_add_4.with_attr("PartitionedFromPattern", "add_add_add_")
         
         # Declare add3 function
-        e = relay.var("e", shape=(1, 16, 56, 56))
-        f = relay.var("f", shape=(1, 16, 56, 56))
-        g = relay.var("g", shape=(1, 16, 56, 56))
+        e = relay.var("e", shape=(1, 16, 56, 56),dtype="int8")
+        f = relay.var("f", shape=(1, 16, 56, 56),dtype="int8")
+        g = relay.var("g", shape=(1, 16, 56, 56),dtype="int8")
         add_3 = e + f + g
         func_add_3 = relay.Function([e, f, g], add_3)
         func_add_3 = func_add_3.with_attr("Composite", "add3")
         func_add_3 = func_add_3.with_attr("PartitionedFromPattern", "add_add_")
 
         # Call add4 and add3
-        pa = relay.var("pa", shape=(1, 16, 56, 56))
-        pb = relay.var("pb", shape=(1, 16, 56, 56))
-        pc = relay.var("pc", shape=(1, 16, 56, 56))
-        pd = relay.var("pd", shape=(1, 16, 56, 56))
-        pe = relay.var("pe", shape=(1, 16, 56, 56))
-        pf = relay.var("pf", shape=(1, 16, 56, 56))
+        pa = relay.var("pa", shape=(1, 16, 56, 56),dtype="int8")
+        pb = relay.var("pb", shape=(1, 16, 56, 56),dtype="int8")
+        pc = relay.var("pc", shape=(1, 16, 56, 56),dtype="int8")
+        pd = relay.var("pd", shape=(1, 16, 56, 56),dtype="int8")
+        pe = relay.var("pe", shape=(1, 16, 56, 56),dtype="int8")
+        pf = relay.var("pf", shape=(1, 16, 56, 56),dtype="int8")
 
         call_func_add_3 = relay.Call(func_add_3, [pa, pb, pc])
         call_func_add_4 = relay.Call(func_add_4, [call_func_add_3, pd, pe, pf])
@@ -216,6 +216,40 @@ def test_addN():
     print(result)
     print("="*20)
     print(expected_graph)
+    print("="*20)
+    # rewrite
+    rewrited = legalize.transform_oraa_function(result)
+    print(rewrited)
+
+
+def test_addN_big():
+    def demo_graph():
+        # generate x0 to x14
+        x0 = relay.var("x0", shape=(1, 16, 56, 56),dtype="int8")
+        x1 = relay.var("x1", shape=(1, 16, 56, 56),dtype="int8")
+        x2 = relay.var("x2", shape=(1, 16, 56, 56),dtype="int8")
+        x3 = relay.var("x3", shape=(1, 16, 56, 56),dtype="int8")
+        x4 = relay.var("x4", shape=(1, 16, 56, 56),dtype="int8")
+        x5 = relay.var("x5", shape=(1, 16, 56, 56),dtype="int8")
+        x6 = relay.var("x6", shape=(1, 16, 56, 56),dtype="int8")
+    
+        r = x0 + x1 + x2 + x3 + x4 + x5 + x6
+
+        return relay.Function([x0,x1,x2,x3,x4,x5,x6], r)
+
+    graph = demo_graph()
+    result = run_opt_pass(graph,
+                          relay.transform.MergeComposite(PATTERN_TABLE),
+                          import_prelude=False)
+    result = run_opt_pass(result, relay.transform.InferType())
+    print("="*20)
+    print(graph)
+    print("="*20)
+    print(result)
+    print("="*20)
+    # rewrite
+    rewrited = legalize.transform_oraa_function(result)
+    print(rewrited)
 
 
 def te_pixel_shuffle_nchw():
@@ -230,3 +264,6 @@ def te_pixel_shuffle_nchw():
 if __name__ == "__main__":
     test_reshape_transpose_reshape()
     test_addN()
+    #BUG: addN(N>=7) will occur type Inference error
+    # test_addN_big()
+    print("success")
