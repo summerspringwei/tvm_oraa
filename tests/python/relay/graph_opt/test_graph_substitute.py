@@ -1,50 +1,12 @@
-# import pytest
-import os
-import logging
+"""Test graph optimization rules for Open-Research-AI-Compiler"""
 
-import tensorflow as tf
 import tvm
 from tvm import relay
-from tvm.relay.dataflow_pattern import TupleGetItemPattern, is_op, wildcard
+from tvm import te
+from tvm import tir
+from tvm.relay.dataflow_pattern import is_op, wildcard
 from tvm.relay.testing import run_opt_pass
-
-import tf_utils
-
-print(tf.__version__)
-
-def tf_addn_single_op(input_list: list):
-    return tf.math.add_n(input_list)
-
-
-def freeze_tf_addn_single_op(input_shape: list, num_inputs: int, dtype=tf.float32):
-    input_list = [tf.keras.Input(shape=input_shape, name="input_{}".format(i), dtype=dtype) for i in range(num_inputs)]
-    output = tf_addn_single_op(input_list)
-    model = tf.keras.Model(inputs=input_list, outputs=[output])
-    folder_path = os.path.join("/tmp", "intel_tvm/models/")
-    input_shape_str = [str(i) for i in input_shape]
-    model_name = "_n{}_s{}".format(tf_addn_single_op.__name__, num_inputs, ",".join(input_shape_str))
-    tf_utils.tf_freeze_keras_model(model, folder_path, model_name)
-
-
-def tf_reshape_transpose_reshape(x, input_shape, tile_size: int):
-    n, c, h, w = input_shape
-    x = tf.reshape(x, [n, c//(tile_size*tile_size), tile_size, tile_size, h, w])
-    x = tf.transpose(x, [0, 1, 4, 2, 5, 3])
-    x = tf.reshape(x, [n, c // (tile_size*tile_size), h * tile_size, w * tile_size])
-
-    return x
-
-
-def freeze_tf_reshape_transpose_reshape(input_shape, tile_size, dtype=tf.float32):
-    input_list = [tf.keras.Input(shape=input_shape, name="input", dtype=dtype)]
-    output = tf_reshape_transpose_reshape(input_list[0], input_shape, tile_size)
-    model = tf.keras.Model(inputs=input_list, outputs=[output])
-    folder_path = os.path.join("/tmp", "intel_tvm/models/")
-    input_shape_str = [str(i) for i in input_shape]
-    model_name = "{}_s{}".format(tf_reshape_transpose_reshape.__name__, ",".join(input_shape_str))
-    tf_utils.tf_freeze_keras_model(model, folder_path, model_name)
-
-    return os.path.join(folder_path, model_name + ".pb")
+from tvm.relay.backend.contrib.oraa import legalize
 
 
 def make_add_relu_pattern():
@@ -59,6 +21,39 @@ def make_add_relu_pattern():
     return r
 
 
+def make_add3_pattern():
+    r"""Create a pattern the match the following graph:
+
+    add
+     |
+    add
+     |
+    add
+    """
+    x, b, c = wildcard(), wildcard(), wildcard()
+    add_1 = is_op("add")(x, b)
+    add_2 = is_op("add")(add_1, c)
+
+    return add_2
+
+
+def make_add4_pattern():
+    r"""Create a pattern the match the following graph:
+
+    add
+     |
+    add
+     |
+    add
+    """
+    x, b, c, d = wildcard(), wildcard(), wildcard(), wildcard()
+    add_1 = is_op("add")(x, b)
+    add_2 = is_op("add")(add_1, c)
+    add_3 = is_op("add")(add_2, d)
+
+    return add_3
+
+
 def make_reshape_transpose_reshape_pattern():
     r"""Create a pattern to match the following graph.
 
@@ -68,73 +63,170 @@ def make_reshape_transpose_reshape_pattern():
        |
     reshape
     """
-    x, y, z = wildcard(), wildcard(), wildcard()
-    # a = relay.var("a", shape=(1, 16, 56, 56))
-    a = wildcard()
-    # reshape_node = is_op("reshape")(a, x)
-    # transpose_node = is_op("transpose")(reshape_node, y)
-    # r = is_op("reshape")(transpose_node, z)
 
-    # We only need to match tensor rather than other parameters here
-    reshape_node = is_op("reshape")(a)
+    x = wildcard()
+    # We only need to match input tensor rather than other attributes here
+    reshape_node = is_op("reshape")(x)
     transpose_node = is_op("transpose")(reshape_node)
     r = is_op("reshape")(transpose_node)
-
-    # x, y, z, a = wildcard(), wildcard(), wildcard(), wildcard()
-    # x = relay.var("a", shape=(1, 16, 56, 56))
-    # reshape_node = is_op("reshape")(x, [1, 16/4, 2, 2, 56, 56])
-    # transpose_node = is_op("transpose")(reshape_node, [0, 1, 4, 2, 5, 3])
-    # r = is_op("reshape")(transpose_node, [1, 16/4, 56*2, 56*2])
     return r
 
 
-def relay_reshape_transpose_reshape():
-    a = relay.var("a", shape=(1, 16, 56, 56))
-    reshape_node = relay.reshape(a, [1, 16/4, 2, 2, 56, 56])
-    transpose_node = relay.transpose(reshape_node, [0, 1, 4, 2, 5, 3])
-    reshape_node_2 = relay.reshape(transpose_node, [1, 16/4, 56*2, 56*2])
-    
-    return relay.Function([a], reshape_node_2)
-
-
-def load_tf_to_relay(model_file):
-    print(model_file)
-    with tf.io.gfile.GFile(model_file, "rb") as f:
-        graph_def = tf.compat.v1.GraphDef()
-        graph_def.ParseFromString(f.read())
-        # print(graph_def)
-        # layers = [op.name for op in graph_def.get_operations()]
-        mod, params = relay.frontend.from_tensorflow(graph_def)
-        graph = mod["main"]
-        print(graph)
-
-        pattern_table = [
-          ("pixel_shuffle", make_reshape_transpose_reshape_pattern()),
-        ]
-        result = run_opt_pass(
-          graph, relay.transform.MergeComposite(pattern_table), import_prelude=False
-        )
-        print(result)
+PATTERN_TABLE = [
+    ("pixel_shuffle", make_reshape_transpose_reshape_pattern()),
+    ("add4", make_add4_pattern()),
+    ("add3", make_add3_pattern()),
+]
 
 
 def test_reshape_transpose_reshape():
-    graph = relay_reshape_transpose_reshape()
+    r"""Test composite function is correctly produced from a graph with single branch.
+
+    We would expect the pattern `make_reshape_transpose_reshape_pattern`
+    to be merged into a single op `pixel_shuffle`
+    """
+
+    def before():
+        x = relay.var("x", shape=(1, 16, 56, 56), dtype="int8")
+        reshape_node = relay.reshape(x, [1, 16 / 4, 2, 2, 56, 56])
+        transpose_node = relay.transpose(reshape_node, [0, 1, 4, 2, 5, 3])
+        reshape_node_2 = relay.reshape(transpose_node,
+                                       [1, 16 / 4, 56 * 2, 56 * 2])
+
+        return relay.Function([x], reshape_node_2)
+
+    def expected():
+        x = relay.var("x", shape=(1, 16, 56, 56), dtype="int8")
+        reshape_node = relay.reshape(x, [1, 16 / 4, 2, 2, 56, 56])
+        transpose_node = relay.transpose(reshape_node, [0, 1, 4, 2, 5, 3])
+        reshape_node_2 = relay.reshape(transpose_node,
+                                       [1, 16 / 4, 56 * 2, 56 * 2])
+        reshape_transpose_reshape = relay.Function([
+            x,
+        ], reshape_node_2)
+        reshape_transpose_reshape = reshape_transpose_reshape.with_attr(
+            "Composite", "pixel_shuffle")
+        reshape_transpose_reshape = reshape_transpose_reshape.with_attr(
+            "PartitionedFromPattern", "reshape_transpose_reshape_")
+
+        # merged function
+        pa = relay.var("pa", shape=(1, 16, 56, 56), dtype="int8")
+        r = relay.Call(reshape_transpose_reshape, [
+            pa,
+        ])
+        return relay.Function([pa], r)
+
+    graph = before()
+    result = run_opt_pass(graph,
+                          relay.transform.MergeComposite(PATTERN_TABLE),
+                          import_prelude=False)
+
     print(graph)
-    pattern_table = [
-          ("pixel_shuffle", make_reshape_transpose_reshape_pattern()),
-        ]
-    result = run_opt_pass(
-          graph, relay.transform.MergeComposite(pattern_table), import_prelude=False
-    )
+    print("=" * 20)
     print(result)
-    
+    print("=" * 20)
+    expected_graph = expected()
+    expected_graph = run_opt_pass(expected_graph, relay.transform.InferType())
+    assert tvm.ir.structural_equal(
+        result, expected_graph, map_free_vars=True
+    ), "Graph mismatch: output vs. expected\n{0}\n=====\n{1}".format(
+        str(result), str(expected_graph))
+
+    # rewrite
+    rewrited = legalize.transform_oraa_function(result)
+    print(rewrited)
 
 
+def test_addN():
+    r"""Test composite function is correctly produced with multiple add
+    We would expect the pattern `make_add3_pattern` and `make_add4_pattern`
+    to be to be merged into a single op `add3` and `add4`, respectively.
 
-if __name__=="__main__":
-    # freeze_tf_addn_single_op([56,56,16,16], 5)
-    file_path = freeze_tf_reshape_transpose_reshape([1,16,56,56], 2)
-    load_tf_to_relay(file_path)
-    # test_reshape_transpose_reshape()
-    # test_simple_merge()
-   
+        a  b
+         \/
+         add c
+           \/                   a b c d
+           add d                 \   /
+             \/        ====>      add4 e f
+             add e                  \  /
+               \/                   add3
+               add f
+                 \/
+                 add
+    """
+
+    def before():
+        a = relay.var("a", shape=(1, 16, 56, 56))
+        b = relay.var("b", shape=(1, 16, 56, 56))
+        c = relay.var("c", shape=(1, 16, 56, 56))
+        d = relay.var("d", shape=(1, 16, 56, 56))
+        e = relay.var("e", shape=(1, 16, 56, 56))
+        f = relay.var("f", shape=(1, 16, 56, 56))
+
+        r = a + b + c + d + e + f
+
+        return relay.Function([a, b, c, d, e, f], r)
+
+    def expect():
+        # Declare add4 function
+        a = relay.var("a", shape=(1, 16, 56, 56))
+        b = relay.var("b", shape=(1, 16, 56, 56))
+        c = relay.var("c", shape=(1, 16, 56, 56))
+        d = relay.var("d", shape=(1, 16, 56, 56))
+        add_4 = a + b + c + d
+        func_add_4 = relay.Function([a, b, c, d], add_4)
+        func_add_4 = func_add_4.with_attr("Composite", "add4")
+        func_add_4 = func_add_4.with_attr("PartitionedFromPattern", "add_add_add_")
+        
+        # Declare add3 function
+        e = relay.var("e", shape=(1, 16, 56, 56))
+        f = relay.var("f", shape=(1, 16, 56, 56))
+        g = relay.var("g", shape=(1, 16, 56, 56))
+        add_3 = e + f + g
+        func_add_3 = relay.Function([e, f, g], add_3)
+        func_add_3 = func_add_3.with_attr("Composite", "add3")
+        func_add_3 = func_add_3.with_attr("PartitionedFromPattern", "add_add_")
+
+        # Call add4 and add3
+        pa = relay.var("pa", shape=(1, 16, 56, 56))
+        pb = relay.var("pb", shape=(1, 16, 56, 56))
+        pc = relay.var("pc", shape=(1, 16, 56, 56))
+        pd = relay.var("pd", shape=(1, 16, 56, 56))
+        pe = relay.var("pe", shape=(1, 16, 56, 56))
+        pf = relay.var("pf", shape=(1, 16, 56, 56))
+
+        call_func_add_3 = relay.Call(func_add_3, [pa, pb, pc])
+        call_func_add_4 = relay.Call(func_add_4, [call_func_add_3, pd, pe, pf])
+
+        return relay.Function([pa, pb, pc, pd, pe, pf], call_func_add_4)
+
+    graph = before()
+    result = run_opt_pass(graph,
+                          relay.transform.MergeComposite(PATTERN_TABLE),
+                          import_prelude=False)
+    expected_graph = expect()
+    expected_graph = run_opt_pass(expected_graph, relay.transform.InferType())
+    assert tvm.ir.structural_equal(
+        result, expected_graph, map_free_vars=True
+    ), "Graph mismatch: output vs. expected\n{0}\n=====\n{1}".format(
+        str(result), str(expected_graph))
+    print("="*20)
+    print(graph)
+    print("="*20)
+    print(result)
+    print("="*20)
+    print(expected_graph)
+
+
+def te_pixel_shuffle_nchw():
+    input = te.placeholder((1, 64, 56, 56), dtype='int8')
+    output = te.compute((1, 16, 112, 112), lambda n, c, h, w: input[
+        n, c * 4 + tir.indexmod(h, 2) * 2 + tir.indexmod(w, 2),
+        tir.indexdiv(h, 2),
+        tir.indexdiv(w, 2)])
+    return output
+
+
+if __name__ == "__main__":
+    test_reshape_transpose_reshape()
+    test_addN()
