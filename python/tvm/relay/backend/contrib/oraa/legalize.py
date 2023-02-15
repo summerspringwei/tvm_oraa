@@ -28,7 +28,7 @@ class Add3Rewriter(DFPatternCallback):
     """Convert add3 related composite functions
     to oraa_add3 operators.
     """
-    def __init__(self, require_type=True, rewrite_once=False):
+    def __init__(self, require_type=True, rewrite_once=True):
         super().__init__(require_type, rewrite_once)
         self.pattern = (wildcard().has_attr({"Composite":
                                              "add3"}))(wildcard(),wildcard(),wildcard())
@@ -48,7 +48,7 @@ class Add4Rewriter(DFPatternCallback):
     """Convert add4 related composite functions
     to oraa_add4 operators.
     """
-    def __init__(self, require_type=True, rewrite_once=False):
+    def __init__(self, require_type=True, rewrite_once=True):
         super().__init__(require_type, rewrite_once)
         self.pattern = (wildcard().has_attr({"Composite":
                                              "add4"}))(wildcard(),wildcard(),wildcard(),wildcard())
