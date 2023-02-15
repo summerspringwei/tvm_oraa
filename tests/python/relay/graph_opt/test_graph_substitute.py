@@ -20,6 +20,7 @@ def make_add_relu_pattern():
     r = is_op("nn.relu")(add_node)
     return r
 
+
 def make_reshape_transpose_reshape_pattern():
     r"""Create a pattern to match the following graph.
 
@@ -49,7 +50,6 @@ def test_reshape_transpose_reshape():
     We would expect the pattern `make_reshape_transpose_reshape_pattern`
     to be merged into a single op `pixel_shuffle`
     """
-
     def before():
         x = relay.var("x", shape=(1, 16, 56, 56), dtype="int8")
         reshape_node = relay.reshape(x, [1, 16 / 4, 2, 2, 56, 56])
@@ -103,10 +103,11 @@ def test_reshape_transpose_reshape():
 
 def te_pixel_shuffle_nchw():
     input = te.placeholder((1, 64, 56, 56), dtype='int8')
-    output = te.compute((1, 16, 112, 112), lambda n, c, h, w: input[
-        n, c * 4 + tir.indexmod(h, 2) * 2 + tir.indexmod(w, 2),
-        tir.indexdiv(h, 2),
-        tir.indexdiv(w, 2)])
+    output = te.compute(
+        (1, 16, 112, 112), lambda n, c, h, w: input[n, c * 4 + tir.indexmod(
+            h, 2) * 2 + tir.indexmod(w, 2),
+                                                    tir.indexdiv(h, 2),
+                                                    tir.indexdiv(w, 2)])
     return output
 
 

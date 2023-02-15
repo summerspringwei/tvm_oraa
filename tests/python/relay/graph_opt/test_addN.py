@@ -18,7 +18,7 @@ def make_add_relu_pattern(have_relu=True):
     relu(optional)
     """
     add_node = wildcard() + wildcard()
-    if(have_relu):
+    if (have_relu):
         add_node = is_op("nn.relu")(add_node)
     return add_node
 
@@ -56,13 +56,12 @@ def make_add4_pattern():
     return add_3
 
 
-
-
 PATTERN_TABLE = [
     ("add4", make_add4_pattern()),
     ("add3", make_add3_pattern()),
     ("add2", make_add_relu_pattern(False)),
 ]
+
 
 def test_add2():
     r"""Test composite function is correctly produced with 2-element add.
@@ -73,10 +72,11 @@ def test_add2():
 
     """
     def before():
-        a = relay.var("a", shape=(1, 16,56,56), dtype="int8")
-        b = relay.var("b", shape=(1, 16,56,56), dtype="int8")
+        a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
+        b = relay.var("b", shape=(1, 16, 56, 56), dtype="int8")
         r = a + b
         return relay.Function([a, b], r)
+
     def expect():
         # Declare add2 function
         a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
@@ -88,9 +88,10 @@ def test_add2():
 
         pa = relay.var("pa", shape=(1, 16, 56, 56), dtype="int8")
         pb = relay.var("pb", shape=(1, 16, 56, 56), dtype="int8")
-        call_func_add_2 = relay.Call(func_add_2, [pa,pb])
+        call_func_add_2 = relay.Call(func_add_2, [pa, pb])
         return relay.Function([pa, pb], call_func_add_2)
-    print("="*20)
+
+    print("=" * 20)
     print("add2 test:")
     graph = before()
     result = run_opt_pass(graph,
@@ -103,11 +104,11 @@ def test_add2():
     ), "Graph mismatch: output vs. expected\n{0}\n=====\n{1}".format(
         str(result), str(expected_graph))
     print(graph)
-    print("="*20)
+    print("=" * 20)
     # rewrite
     rewrited = legalize.transform_oraa_function(result)
     print(rewrited)
-        
+
 
 def test_add3():
     r"""Test composite function is correctly produced with 3-element add.
@@ -120,12 +121,12 @@ def test_add3():
 
     """
     def before():
-        a = relay.var("a", shape=(1, 16,56,56), dtype="int8")
-        b = relay.var("b", shape=(1, 16,56,56), dtype="int8")
-        c = relay.var("c", shape=(1, 16,56,56), dtype="int8")
+        a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
+        b = relay.var("b", shape=(1, 16, 56, 56), dtype="int8")
+        c = relay.var("c", shape=(1, 16, 56, 56), dtype="int8")
         r = a + b + c
         return relay.Function([a, b, c], r)
-    
+
     def expect():
         # Declare add3 function
         a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
@@ -139,9 +140,10 @@ def test_add3():
         pa = relay.var("pa", shape=(1, 16, 56, 56), dtype="int8")
         pb = relay.var("pb", shape=(1, 16, 56, 56), dtype="int8")
         pc = relay.var("pc", shape=(1, 16, 56, 56), dtype="int8")
-        call_func_add_3 = relay.Call(func_add_3, [pa,pb,pc])
+        call_func_add_3 = relay.Call(func_add_3, [pa, pb, pc])
         return relay.Function([pa, pb, pc], call_func_add_3)
-    print("="*20)
+
+    print("=" * 20)
     print("add3 test:")
     graph = before()
     result = run_opt_pass(graph,
@@ -154,10 +156,11 @@ def test_add3():
     ), "Graph mismatch: output vs. expected\n{0}\n=====\n{1}".format(
         str(result), str(expected_graph))
     print(graph)
-    print("="*20)
+    print("=" * 20)
     # rewrite
     rewrited = legalize.transform_oraa_function(result)
     print(rewrited)
+
 
 def test_add4():
     r"""Test composite function is correctly produced with 3-element add.
@@ -171,13 +174,13 @@ def test_add4():
             add        ====>      add4
     """
     def before():
-        a = relay.var("a", shape=(1, 16,56,56), dtype="int8")
-        b = relay.var("b", shape=(1, 16,56,56), dtype="int8")
-        c = relay.var("c", shape=(1, 16,56,56), dtype="int8")
-        d = relay.var("d", shape=(1, 16,56,56), dtype="int8")
+        a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
+        b = relay.var("b", shape=(1, 16, 56, 56), dtype="int8")
+        c = relay.var("c", shape=(1, 16, 56, 56), dtype="int8")
+        d = relay.var("d", shape=(1, 16, 56, 56), dtype="int8")
         r = a + b + c + d
         return relay.Function([a, b, c, d], r)
-    
+
     def expect():
         # Declare add3 function
         a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
@@ -187,15 +190,17 @@ def test_add4():
         add4 = a + b + c + d
         func_add_4 = relay.Function([a, b, c, d], add4)
         func_add_4 = func_add_4.with_attr("Composite", "add4")
-        func_add_4 = func_add_4.with_attr("PartitionedFromPattern", "add_add_add_")
+        func_add_4 = func_add_4.with_attr("PartitionedFromPattern",
+                                          "add_add_add_")
 
         pa = relay.var("pa", shape=(1, 16, 56, 56), dtype="int8")
         pb = relay.var("pb", shape=(1, 16, 56, 56), dtype="int8")
         pc = relay.var("pc", shape=(1, 16, 56, 56), dtype="int8")
         pd = relay.var("pd", shape=(1, 16, 56, 56), dtype="int8")
-        call_func_add_4 = relay.Call(func_add_4, [pa,pb,pc,pd])
+        call_func_add_4 = relay.Call(func_add_4, [pa, pb, pc, pd])
         return relay.Function([pa, pb, pc, pd], call_func_add_4)
-    print("="*20)
+
+    print("=" * 20)
     print("add4 test:")
     graph = before()
     result = run_opt_pass(graph,
@@ -208,11 +213,10 @@ def test_add4():
     ), "Graph mismatch: output vs. expected\n{0}\n=====\n{1}".format(
         str(result), str(expected_graph))
     print(graph)
-    print("="*20)
+    print("=" * 20)
     # rewrite
     rewrited = legalize.transform_oraa_function(result)
     print(rewrited)
-
 
 
 def test_addN():
@@ -232,7 +236,6 @@ def test_addN():
                  \/
                  add
     """
-
     def before():
         a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
         b = relay.var("b", shape=(1, 16, 56, 56), dtype="int8")
@@ -254,8 +257,8 @@ def test_addN():
         add_4 = a + b + c + d
         func_add_4 = relay.Function([a, b, c, d], add_4)
         func_add_4 = func_add_4.with_attr("Composite", "add4")
-        func_add_4 = func_add_4.with_attr(
-            "PartitionedFromPattern", "add_add_add_")
+        func_add_4 = func_add_4.with_attr("PartitionedFromPattern",
+                                          "add_add_add_")
 
         # Declare add3 function
         e = relay.var("e", shape=(1, 16, 56, 56), dtype="int8")
@@ -278,7 +281,8 @@ def test_addN():
         call_func_add_4 = relay.Call(func_add_4, [call_func_add_3, pd, pe, pf])
 
         return relay.Function([pa, pb, pc, pd, pe, pf], call_func_add_4)
-    print("="*20)
+
+    print("=" * 20)
     print("add6 test:")
     graph = before()
     result = run_opt_pass(graph,
@@ -291,7 +295,7 @@ def test_addN():
     ), "Graph mismatch: output vs. expected\n{0}\n=====\n{1}".format(
         str(result), str(expected_graph))
     print(graph)
-    print("="*20)
+    print("=" * 20)
     # rewrite
     rewrited = legalize.transform_oraa_function(result)
     print(rewrited)
@@ -321,8 +325,12 @@ def test_addN_big():
         r = x0 + x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + \
             x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16
 
-        return relay.Function([x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16], r)
-    print("="*20)
+        return relay.Function([
+            x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14,
+            x15, x16
+        ], r)
+
+    print("=" * 20)
     print("add17 test:")
     graph = demo_graph()
     result = run_opt_pass(graph,
@@ -330,7 +338,7 @@ def test_addN_big():
                           import_prelude=False)
     result = run_opt_pass(result, relay.transform.InferType())
     print(graph)
-    print("="*20)
+    print("=" * 20)
     # rewrite
     rewrited = legalize.transform_oraa_function(result)
     print(rewrited)
