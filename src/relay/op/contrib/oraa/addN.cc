@@ -18,6 +18,18 @@ namespace op {
 namespace contrib {
 namespace oraa {
 
+// Add2 is a elemwise operator
+Array<IndexExpr> ORAAAdd2OutputShape(Array<IndexExpr> in0_shape, Array<IndexExpr> in1_shape,
+                                    String ifm_layout, String ofm_layout) {
+  Array<IndexExpr> output_shape{
+      max(in0_shape[0], in1_shape[0]),
+      max(in0_shape[1], in1_shape[1]),
+      max(in0_shape[2], in1_shape[2]),
+      max(in0_shape[3], in1_shape[3]),
+  };
+  return output_shape;
+}
+
 // Add3 is a elemwise operator
 Array<IndexExpr> ORAAAdd3OutputShape(Array<IndexExpr> in0_shape, Array<IndexExpr> in1_shape,
                                      Array<IndexExpr> in2_shape, String ifm_layout,
@@ -46,6 +58,21 @@ Array<IndexExpr> ORAAAdd4OutputShape(Array<IndexExpr> in0_shape, Array<IndexExpr
 
   return output_shape;
 }
+
+struct ORAAAdd2Attrs : public tvm::AttrsNode<ORAAAdd2Attrs> {
+  String ifm_layout;
+  String ofm_layout;
+  TVM_DECLARE_ATTRS(ORAAAdd2Attrs, "relay.attrs.ORAAAdd2Attrs") {
+    TVM_ATTR_FIELD(ifm_layout)
+        .set_default("NCHW")
+        .describe("The layout of the Input Feature Map tensor. Can be 'NCHW'.");
+    TVM_ATTR_FIELD(ofm_layout)
+        .set_default("NCHW")
+        .describe("The layout of the Output Feature Map tensor. Can be 'NCHW'.");
+  }
+};
+
+TVM_REGISTER_NODE_TYPE(ORAAAdd2Attrs);
 
 struct ORAAAdd3Attrs : public tvm::AttrsNode<ORAAAdd3Attrs> {
   String ifm_layout;
@@ -76,6 +103,30 @@ struct ORAAAdd4Attrs : public tvm::AttrsNode<ORAAAdd4Attrs> {
 };
 
 TVM_REGISTER_NODE_TYPE(ORAAAdd4Attrs);
+
+bool ORAAAdd2Rel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
+                 const TypeReporter& reporter) {
+  // CHECK_EQ(types.size(), 3);
+  if(types.size()!=3)
+    return false;
+  const auto* in0 = types[0].as<TensorTypeNode>();
+  const auto* in1 = types[1].as<TensorTypeNode>();
+  if (in0 == nullptr || in1 == nullptr) return false;
+
+  const auto* param = attrs.as<ORAAAdd2Attrs>();
+  CHECK(param != nullptr) << "ORAAAdd2Attrs cannot be nullptr.";
+  const String operator_name = "oraa_add2";
+  CheckDataType(reporter, in0->dtype, {DataType::UInt(8), DataType::Int(8)}, operator_name, "in0");
+  CheckDataType(reporter, in1->dtype, {DataType::UInt(8), DataType::Int(8)}, operator_name, "in1");
+  Array<IndexExpr> in0_shape = in0->shape;
+  Array<IndexExpr> in1_shape = in1->shape;
+  // Assign ofm type
+  auto ofm_shape =
+      ORAAAdd2OutputShape(in0_shape, in1_shape, param->ifm_layout, param->ofm_layout);
+
+  reporter->Assign(types[2], TensorType(ofm_shape, in0->dtype));
+  return true;
+}
 
 bool ORAAAdd3Rel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
                  const TypeReporter& reporter) {
@@ -136,6 +187,14 @@ bool ORAAAdd4Rel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
   return true;
 }
 
+Expr MakeAdd2(Expr in0, Expr in1, String ifm_layout, String ofm_layout) {
+  auto attrs = make_object<ORAAAdd2Attrs>();
+  attrs->ifm_layout = std::move(ifm_layout);
+  attrs->ofm_layout = std::move(ofm_layout);
+  static const Op& op = Op::Get("contrib.oraa.add2");
+  return Call(op, {in0, in1}, Attrs(attrs), {});
+}
+
 Expr MakeAdd3(Expr in0, Expr in1, Expr in2, String ifm_layout, String ofm_layout) {
   auto attrs = make_object<ORAAAdd3Attrs>();
   attrs->ifm_layout = std::move(ifm_layout);
@@ -152,8 +211,26 @@ Expr MakeAdd4(Expr in0, Expr in1, Expr in2, Expr in3, String ifm_layout, String 
   return Call(op, {in0, in1, in2, in3}, Attrs(attrs), {});
 }
 
+TVM_REGISTER_GLOBAL("relay.op._make.oraa_add2").set_body_typed(MakeAdd2);
 TVM_REGISTER_GLOBAL("relay.op._make.oraa_add3").set_body_typed(MakeAdd3);
 TVM_REGISTER_GLOBAL("relay.op._make.oraa_add4").set_body_typed(MakeAdd4);
+
+RELAY_REGISTER_OP("contrib.oraa.add2")
+    .describe(R"code(Open Research AI Architecture add2 operator.
+
+This Relay operator corresponds to the hardware-implemented add2 operator
+found on Open Research AI Architecture. It accepts NCHW
+format for the input data (Input Feature Map, or IFM).
+
+- **in0,in1**: NCHW - (1, ifm_channels, ifm_height, ifm_width)
+
+)code" TVM_ADD_FILELINE)
+    .set_attrs_type<ORAAAdd2Attrs>()
+    .set_num_inputs(2)
+    .add_argument("in0", "Tensor", "The Input tensor 0.")
+    .add_argument("in1", "Tensor", "The Input tensor 1.")
+    .set_support_level(11)
+    .add_type_rel("ORAA", ORAAAdd2Rel);
 
 RELAY_REGISTER_OP("contrib.oraa.add3")
     .describe(R"code(Open Research AI Architecture add3 operator.

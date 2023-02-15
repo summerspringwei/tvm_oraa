@@ -24,6 +24,22 @@ class PixelShuffleRewriter(DFPatternCallback):
         # print(input_tensor)
         return oraa_op.oraa_pixel_shuffle(input_tensor)
 
+class Add2Rewriter(DFPatternCallback):
+    """Convert add2 composite function
+    to oraa_add2 operator.
+    """
+    def __init__(self, require_type=True, rewrite_once=True):
+        super().__init__(require_type, rewrite_once)
+        self.pattern = (wildcard().has_attr({"Composite":
+                                             "add2"}))(wildcard(),wildcard())
+
+    def callback(self, pre: tvm.relay.Expr, post: tvm.relay.Expr,
+                 node_map: tvm.ir.container.Map) -> tvm.relay.Expr:
+        in0 = post.args[0]
+        in1 = post.args[1]
+        return oraa_op.oraa_add2(in0,in1)
+
+
 class Add3Rewriter(DFPatternCallback):
     """Convert add3 related composite functions
     to oraa_add3 operators.
@@ -72,9 +88,9 @@ def transform_oraa_function(func: relay.Function) -> relay.Function:
     """
     rewriters = [
         PixelShuffleRewriter(),
+        Add2Rewriter(),
         Add3Rewriter(),
         Add4Rewriter(),
-        
     ]
 
     for rewriter in rewriters:
