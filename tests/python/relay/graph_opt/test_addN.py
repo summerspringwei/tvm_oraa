@@ -1,5 +1,6 @@
 """
 Testing for the graph optimization (Add3/Add4) for Open-Research-AI-Compiler
+Replace AddN into combinations of Add3/Add4, which map to concat+conv1x1
 """
 import tvm
 from tvm import relay
@@ -57,57 +58,10 @@ def make_add4_pattern():
 
 
 PATTERN_TABLE = [
+    #NOTE: order is important, first come, first match
     ("add4", make_add4_pattern()),
     ("add3", make_add3_pattern()),
-    ("add2", make_add_relu_pattern(False)),
 ]
-
-
-def test_add2():
-    r"""Test composite function is correctly produced with 2-element add.
-
-        a  b               a  b
-         \/                 \/
-         add    ====>      add2
-
-    """
-    def before():
-        a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
-        b = relay.var("b", shape=(1, 16, 56, 56), dtype="int8")
-        r = a + b
-        return relay.Function([a, b], r)
-
-    def expect():
-        # Declare add2 function
-        a = relay.var("a", shape=(1, 16, 56, 56), dtype="int8")
-        b = relay.var("b", shape=(1, 16, 56, 56), dtype="int8")
-        add2 = a + b
-        func_add_2 = relay.Function([a, b], add2)
-        func_add_2 = func_add_2.with_attr("Composite", "add2")
-        func_add_2 = func_add_2.with_attr("PartitionedFromPattern", "add_")
-
-        pa = relay.var("pa", shape=(1, 16, 56, 56), dtype="int8")
-        pb = relay.var("pb", shape=(1, 16, 56, 56), dtype="int8")
-        call_func_add_2 = relay.Call(func_add_2, [pa, pb])
-        return relay.Function([pa, pb], call_func_add_2)
-
-    print("=" * 20)
-    print("add2 test:")
-    graph = before()
-    result = run_opt_pass(graph,
-                          relay.transform.MergeComposite(PATTERN_TABLE),
-                          import_prelude=False)
-    expected_graph = expect()
-    expected_graph = run_opt_pass(expected_graph, relay.transform.InferType())
-    assert tvm.ir.structural_equal(
-        result, expected_graph, map_free_vars=True
-    ), "Graph mismatch: output vs. expected\n{0}\n=====\n{1}".format(
-        str(result), str(expected_graph))
-    print(graph)
-    print("=" * 20)
-    # rewrite
-    rewrited = legalize.transform_oraa_function(result)
-    print(rewrited)
 
 
 def test_add3():
@@ -339,13 +293,27 @@ def test_addN_big():
     result = run_opt_pass(result, relay.transform.InferType())
     print(graph)
     print("=" * 20)
+    print(result)
+    print("=" * 20)
     # rewrite
     rewrited = legalize.transform_oraa_function(result)
     print(rewrited)
+    seq = tvm.transform.Sequential(
+        [
+            relay.transform.RemoveUnusedFunctions(),
+            relay.transform.FoldConstant(),
+        ]
+    )
+    mod = tvm.IRModule.from_expr(rewrited)
+    mod = seq(mod)
+    print("=" * 20)
+    print(mod)
+
+    
 
 
 if __name__ == "__main__":
-    test_add2()
+    # test_add2()
     test_add3()
     test_add4()
     test_addN()
