@@ -19,19 +19,19 @@ vN = te.size_var("N")
 pA = te.placeholder((vM, vK), name="A")
 pB = te.placeholder((vK, vN), name="B")
 
-M = 1024
-K = 1024
-N = 1024
+M = 256
+K = 256
+N = 256
 dtype="float32"
 
 # Random generated tensor for testing
-a = tvm.nd.array(np.random.rand(M, K).astype(dtype))
-b = tvm.nd.array(np.random.rand(K, N).astype(dtype))
+a = tvm.nd.array(np.ones(shape=(M, K)).astype(dtype))
+b = tvm.nd.array(np.ones(shape=(K, N)).astype(dtype))
 c = tvm.nd.array(np.zeros((M, N), dtype=dtype))
-answer = np.dot(a.numpy(), b.numpy())
+answer = np.matmul(a.numpy(), b.numpy())
 pC = matmul_te(A=pA, B=pB)
 # Default schedule
-s = te.create_schedule(pC.op)
+s: te.schedule.Schedule = te.create_schedule(pC.op)
 
 def cpu_gemm(pA,pB,pC):
 
@@ -50,11 +50,10 @@ cpu_gemm(pA,pB,pC)
 
 
 def gpu_gemm(pA,pB,pC):
-    A, B = s[pC].op.input_tensors
     # C[m,n] += A[m,k]*B[k,n]
 
     block_size = 16
-    tx, ty, tk = 8, 4, 32
+    tx, ty, tk = 16, 16, 16
     ctx = tvm.cuda()
     def split(stage, axis, factors):
         axes=[]
@@ -71,8 +70,8 @@ def gpu_gemm(pA,pB,pC):
         s[shared].compute_at(s[C_local], ko)
         s[local].compute_at(s[C_local], ki)
         y,x = s[shared].op.axis
-        yo, yi = s[shared].split(y, block_size)
-        xo, xi = s[shared].split(x, block_size)
+        yo, yi = s[shared].split(y, nparts=block_size)
+        xo, xi = s[shared].split(x, nparts=block_size)
         s[shared].reorder(yo, xo, yi, xi)
         bind_thread(s[shared], (yo,xo), ("threadIdx.y", "threadIdx.x"))
 
@@ -86,9 +85,9 @@ def gpu_gemm(pA,pB,pC):
     xb,xo,xi = split(s[pC],x,(block_size, tx))
     yb,yo,yi = split(s[pC],y,(block_size, ty))
     s[pC].reorder(xb, yb, xo, yo, xi, yi)
-
+    # we bind yb to blockIdx.x instead of blockIdx.y
     bind_thread(s[pC], [yb, xb, yo, xo],("blockIdx.x", "blockIdx.y", "threadIdx.x", "threadIdx.y"))
-
+    # schedule C_local
     s[C_local].compute_at(s[pC], yo)
     yi,xi = s[C_local].op.axis
     k, = s[C_local].op.reduce_axis
@@ -107,12 +106,13 @@ def gpu_gemm(pA,pB,pC):
     print("-"*10,"GPU code","-"*10)
     print(dev_module.get_source())
     dev = tvm.cuda(0)
-    a = tvm.nd.array(np.random.rand(M, K).astype(dtype),dev)
-    b = tvm.nd.array(np.random.rand(K, N).astype(dtype),dev)
-    c2 = tvm.nd.array(np.zeros((M, N), dtype=dtype),dev)
-    cuda_func(a,b,c2)
-    # tvm.testing.assert_allclose(c2.numpy(), answer, rtol=1e-5)
+    a2 = tvm.nd.array(np.ones(shape=(M, K)).astype(dtype),device=dev)
+    b2 = tvm.nd.array(np.ones(shape=(K, N)).astype(dtype),device=dev)
+    c2 = tvm.nd.array(np.zeros((M, N), dtype=dtype),device=dev)
+    cuda_func(a2,b2,c2)
+    # print(c2)
+    tvm.testing.assert_allclose(c2.numpy(), answer, rtol=1e-5)
     evaluator = cuda_func.time_evaluator(cuda_func.entry_name,dev=tvm.cuda(0), number=1)
-    print("GPU shared: %f" % evaluator(a, b, c2).mean)
+    print("GPU shared: %f" % evaluator(a2, b2, c2).mean)
 
 gpu_gemm(pA,pB,pC)
