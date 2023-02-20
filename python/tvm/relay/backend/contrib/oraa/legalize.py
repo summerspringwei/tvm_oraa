@@ -5,6 +5,7 @@ from tvm.relay.dataflow_pattern import DFPatternCallback  # type: ignore
 from tvm.relay.dataflow_pattern import wildcard
 from tvm.relay.dataflow_pattern import rewrite
 from tvm.relay.backend.contrib.oraa import op as oraa_op
+from tvm.relay import op as _op
 import numpy as np  # type: ignore
 
 class PixelShuffleRewriter(DFPatternCallback):
@@ -20,9 +21,7 @@ class PixelShuffleRewriter(DFPatternCallback):
     def callback(self, pre: tvm.relay.Expr, post: tvm.relay.Expr,
                  node_map: tvm.ir.container.Map) -> tvm.relay.Expr:
         input_tensor = post.args[0]
-        # print("*" * 10)
-        # print(input_tensor)
-        return oraa_op.oraa_pixel_shuffle(input_tensor)
+        return _op.nn.depth_to_space(data=input_tensor,block_size=2,layout="NCHW",mode="DCR")
 
 class SpaceToDepthRewriter(DFPatternCallback):
     """Convert reshape-transpose-reshape related composite functions
@@ -39,7 +38,7 @@ class SpaceToDepthRewriter(DFPatternCallback):
         input_tensor = post.args[0]
         # print("*" * 10)
         # print(input_tensor)
-        return oraa_op.oraa_space_to_depth(input_tensor)
+        return _op.nn.space_to_depth(data=input_tensor,block_size=2,layout="NCHW")
 
 class Add2Rewriter(DFPatternCallback):
     """Convert add2 composite function
