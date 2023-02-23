@@ -218,15 +218,6 @@ def test_addN():
     print(expected_graph)
 
 
-def te_pixel_shuffle_nchw():
-    input = te.placeholder((1, 64, 56, 56), dtype='int8')
-    output = te.compute((1, 16, 112, 112), lambda n, c, h, w: input[
-        n, c * 4 + tir.indexmod(h, 2) * 2 + tir.indexmod(w, 2),
-        tir.indexdiv(h, 2),
-        tir.indexdiv(w, 2)])
-    return output
-
-
 if __name__ == "__main__":
     test_reshape_transpose_reshape()
     test_addN()

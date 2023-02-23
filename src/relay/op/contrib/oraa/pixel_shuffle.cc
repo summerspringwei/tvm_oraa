@@ -6,6 +6,7 @@
 
 #include <tvm/relay/base.h>
 #include <tvm/relay/op.h>
+#include <tvm/relay/op_attr_types.h>
 #include <tvm/relay/qnn/attrs.h>
 #include <tvm/tir/analysis.h>
 #include <tvm/tir/data_layout.h>
@@ -89,6 +90,7 @@ Reference: https://pytorch.org/docs/stable/generated/torch.nn.PixelShuffle.html
     .set_attrs_type<ORAAPixelShuffleAttrs>()
     .set_num_inputs(1)
     .add_argument("ifm", "Tensor", "The Input Feature Map tensor (IFM).")
+    .set_attr<TOpPattern>("TOpPattern", kInjective)
     .set_support_level(11)
     .add_type_rel("ORAA", ORAAPixelShuffleRel);
 
