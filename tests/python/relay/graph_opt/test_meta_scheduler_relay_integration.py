@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 import tvm
-from tvm import relay, te, tir
+from tvm import relay, te, tir, topi
 from tvm import IRModule
 from tvm import meta_schedule as ms
 from tvm.target import Target
@@ -15,6 +15,7 @@ from tvm.topi.utils import get_const_tuple
 from tvm.relay.backend.contrib.oraa import op
 from tvm.relay.backend.contrib.oraa.topi import pixel_shuffle_cuda
 from tvm.relay.backend.contrib.oraa.tir.tensor_intrin import oraa_cuda
+from tvm.topi import utils
 
 logging.getLogger("te_compiler").setLevel(logging.INFO)
 logging.getLogger("te_compiler").addHandler(logging.StreamHandler(sys.stdout))
@@ -110,9 +111,48 @@ def test_tensorize_oraa_pixel_shuffle(input_shape: list):
     print(sch.mod.script())
 
 
+def pointwise_conv2d_nchw(Input, Filter, out_dtype="int8"):
+    batch, in_channel, in_height, in_width = utils.get_const_tuple(
+        Input.shape)
+    out_channel, _, k_height, k_width = utils.get_const_tuple(Filter.shape)
+    out_height = in_height
+    out_width = in_width
+    out_height = in_height
+    out_width = in_width
+    # N OC H W IC (KH KW)
+    ic = te.reduce_axis((0, in_channel), name="ic")
+    Output = te.compute((batch, out_channel, out_height, out_width),lambda b, c, h, w:
+        te.sum(Input[b, c, h, w] * Filter[c, ic, 0, 0], axis=ic), name="PointwiseConv2dNCHW")
+    return Output
+
+def test_tensorize_oraa_pointwise_conv2d(input_shape: list):
+    input_tensor = te.placeholder(input_shape, dtype="int8", name="input_name")
+    weight_tensor = te.placeholder(shape=(input_shape[1],input_shape[1], 1, 1),dtype="int8", name="weight_name")
+    output_tensor = pointwise_conv2d_nchw(input_tensor, weight_tensor)
+    func = te.create_prim_func([input_tensor, weight_tensor, output_tensor])
+    print(func)
+    # official_out = topi.nn.conv2d_nchw(Input=input_tensor,Filter=weight_tensor,stride=1,padding=0,dilation=1,
+    #                                     out_dtype="int8")
+    # official_func = te.create_prim_func([input_tensor, weight_tensor, official_out])
+    # print(official_func)
+    ir_module_from_te = IRModule({"main": func})
+    sch = tir.Schedule(ir_module_from_te)
+    block_pointwise_conv2d = sch.get_block("PointwiseConv2dNCHW")
+    plist = sch.get_loops(block_pointwise_conv2d)
+    (n, oc, h, w, ic) = plist
+    no, ni = sch.split(n, factors=[None, 2])
+    co, ci = sch.split(oc, factors=[None, 8])
+    ho, hi = sch.split(h, factors=[None, 2])
+    wo, wi = sch.split(w, factors=[None, 8])
+    sch.reorder(no, co, ho, wo, ni, ci, hi, wi, ic)
+    sch.tensorize(ni, oraa_cuda.ORAA_PWC_N2C8H2W8_INTRIN)
+    print(sch.mod.script())
+
+
 if __name__ == "__main__":
     # test_meta_schedule_dynamic_loop_extent()
     # test_pixel_shuffle((1, 64, 28, 28))
     # test_pixel_shuffle((1, 4, 8, 8))
     # test_meta_schedule_relay_integration_oraa_pixel_shuffle((1, 4, 8, 8))
-    test_tensorize_oraa_pixel_shuffle((2, 16, 8, 8))
+    # test_tensorize_oraa_pixel_shuffle((2, 16, 8, 8))
+    test_tensorize_oraa_pointwise_conv2d((4, 8, 2, 8))

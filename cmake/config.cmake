@@ -118,7 +118,7 @@ set(USE_GRAPH_EXECUTOR ON)
 set(USE_GRAPH_EXECUTOR_CUDA_GRAPH OFF)
 
 # Whether enable pipeline executor.
-set(USE_PIPELINE_EXECUTOR OFF)
+set(USE_PIPELINE_EXECUTOR ON)
 
 # Whether to enable the profiler for the graph executor and vm
 set(USE_PROFILER ON)
