@@ -58,6 +58,7 @@ class CodeGenCUDA final : public CodeGenC {
   void PrintVecElemStore(const std::string& vec, DataType t, int i, const std::string& value) final;
   void BindThreadIndex(const IterVar& iv) final;  // NOLINT(*)
   void PrintVecElemLoadExpr(DataType t, int i, const std::string& value, std::ostream& os) final;
+  void PreFunctionBody(const PrimFunc& f) final;
   // overload visitor
   void VisitExpr_(const RampNode* op, std::ostream& os) final;       // NOLINT(*)
   void VisitExpr_(const ShuffleNode* op, std::ostream& os) final;    // NOLINT(*)
@@ -100,6 +101,8 @@ class CodeGenCUDA final : public CodeGenC {
   bool need_math_constants_h_{false};
   // whether need mma.h
   bool need_mma_h_{false};
+  // whether need cooperative_groups.h
+  bool need_cooperative_group_{false};
   // Op attribute map
   OpAttrMap<bool> op_need_warp_shuffle_ = Op::GetAttrMap<bool>("cuda.need_warp_shuffle");
 

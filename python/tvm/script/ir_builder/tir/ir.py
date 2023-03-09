@@ -1595,7 +1595,7 @@ TVMBackendAllocWorkspace = _op_wrapper(_tir_op.TVMBackendAllocWorkspace)
 TVMBackendFreeWorkspace = _op_wrapper(_tir_op.TVMBackendFreeWorkspace)
 start_profile_intrinsic = _op_wrapper(_tir_op.start_profile_intrinsic)
 end_profile_intrinsic = _op_wrapper(_tir_op.end_profile_intrinsic)
-
+grid_sync = _op_wrapper(_tir_op.grid_sync)
 
 class meta_var:
     """A meta variable used in TVMScript metaprogramming. It means that the value of the variable
@@ -1776,6 +1776,7 @@ __all__ += [
     "TVMBackendFreeWorkspace",
     "start_profile_intrinsic",
     "end_profile_intrinsic",
+    "grid_sync",
     "meta_var",
     "llvm_lookup_intrinsic_id",
     "type_annotation",

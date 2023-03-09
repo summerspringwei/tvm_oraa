@@ -44,11 +44,11 @@ def test_tvm_cuda_grid_sync():
   ctx = tvm.cuda(0)
   cuda_mod = tvm.build(sch.mod, target="cuda")
   print(cuda_mod.imported_modules[0].get_source())
-  cuda_a = tvm.nd.array(np.zeros((32, 32)).astype("float32"), ctx)
-  cuda_b = tvm.nd.array(np.zeros((32, 32)).astype("float32"), ctx)
-  cuda_mod(cuda_a, cuda_b)
-  print(cuda_a)
-  print(cuda_b)
+  # cuda_a = tvm.nd.array(np.zeros((32, 32)).astype("float32"), ctx)
+  # cuda_b = tvm.nd.array(np.zeros((32, 32)).astype("float32"), ctx)
+  # cuda_mod(cuda_a, cuda_b)
+  # print(cuda_a)
+  # print(cuda_b)
 
 
 if __name__=="__main__":

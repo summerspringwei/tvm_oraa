@@ -180,6 +180,9 @@ class CUDAWrappedFunc {
       }
     }
     CUstream strm = static_cast<CUstream>(CUDAThreadEntry::ThreadLocal()->stream);
+    // CUresult result = cuLaunchCooperativeKernel(fcache_[device_id], wl.grid_dim(0), wl.grid_dim(1),
+    //                                  wl.grid_dim(2), wl.block_dim(0), wl.block_dim(1),
+    //                                  wl.block_dim(2), wl.dyn_shmem_size, strm, void_args);
     CUresult result = cuLaunchKernel(fcache_[device_id], wl.grid_dim(0), wl.grid_dim(1),
                                      wl.grid_dim(2), wl.block_dim(0), wl.block_dim(1),
                                      wl.block_dim(2), wl.dyn_shmem_size, strm, void_args, nullptr);

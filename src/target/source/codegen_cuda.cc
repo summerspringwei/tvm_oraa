@@ -74,6 +74,23 @@ class ThreadIdxExtractor : public tir::StmtVisitor {
   PrimExpr threadIdx_z_ext = Integer(1);
 };
 
+
+class GridSyncFinder : public tir::StmtVisitor {
+  private:
+  
+  void VisitStmt_(const EvaluateNode* op) {
+    const CallNode* call = op->value.as<CallNode>();
+    if (call && call->op.same_as(builtin::grid_sync())){
+      has_grid_sync = true;
+      return;
+    }
+    StmtVisitor::VisitStmt_(op);
+  }
+  public:
+  bool has_grid_sync{false};
+};
+
+
 void CodeGenCUDA::PrintExtraAttrs(const PrimFunc& f) {
   ThreadIdxExtractor extractor;
   extractor(f->body);
@@ -86,6 +103,14 @@ void CodeGenCUDA::PrintExtraAttrs(const PrimFunc& f) {
       return;
     }
     stream << " __launch_bounds__(" << threadIdx_ext_int->value << ")";
+  }
+}
+
+void CodeGenCUDA::PreFunctionBody(const PrimFunc& f) {
+  GridSyncFinder finder;
+  finder(f->body);
+  if(finder.has_grid_sync){
+    stream << "cooperative_groups::grid_group grid = cooperative_groups::this_grid();\n";;
   }
 }
 
@@ -132,6 +157,10 @@ std::string CodeGenCUDA::Finish() {
 
   if (need_mma_h_) {
     decl_stream << "#include <mma.h>\n";
+  }
+
+  if (need_cooperative_group_) {
+    decl_stream << "#include <cooperative_groups.h>\n";
   }
 
   decl_stream << "\n#ifdef _WIN32\n";
@@ -903,7 +932,10 @@ void CodeGenCUDA::VisitExpr_(const CallNode* op, std::ostream& os) {
   } else if (op->op.same_as(builtin::ptx_wait_group())) {
     std::string N = this->PrintExpr(op->args[0]);
     this->stream << "__asm__ __volatile__(\"cp.async.wait_group " + N + ";\");\n\n";
-  } else {
+  } else if (op->op.same_as(builtin::grid_sync())){
+    need_cooperative_group_ = true;
+    this->stream << "grid.sync();\n";
+  }else {
     CodeGenC::VisitExpr_(op, os);
   }
 }

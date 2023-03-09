@@ -310,6 +310,9 @@ TIR_DEFINE_BUILTIN_FUNC(start_profile_intrinsic)
 TIR_DEFINE_BUILTIN_FUNC(end_profile_intrinsic)
     .set_attr<TCallEffectKind>("TCallEffectKind", Integer(CallEffectKind::kPure));
 
+TIR_DEFINE_BUILTIN_FUNC(grid_sync)
+    .set_attr<TCallEffectKind>("TCallEffectKind", Integer(CallEffectKind::kOpaque));
+
 }  // namespace builtin
 }  // namespace tir
 }  // namespace tvm

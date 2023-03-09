@@ -76,7 +76,9 @@ def compile_cuda(code, target_format="ptx", arch=None, options=None, path_target
         out_file.write(code)
 
     file_target = path_target if path_target else temp_target
-    cmd = ["nvcc"]
+    import os
+    CUDA_HOME = os.getenv('CUDA_HOME')
+    cmd = [os.path.join(CUDA_HOME, "bin", "nvcc")]
     cmd += ["--%s" % target_format, "-O3"]
     if isinstance(arch, list):
         cmd += arch

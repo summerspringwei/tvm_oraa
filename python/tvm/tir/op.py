@@ -464,6 +464,17 @@ def end_profile_intrinsic(id):
     return call_intrin("handle", "tir.end_profile_intrinsic", id)
 
 
+def grid_sync():
+    """Grid synchronization
+
+    Returns
+    -------
+    call : PrimExpr
+        The call expression.
+    """
+    return call_intrin("handle", "tir.grid_sync")
+
+
 def tvm_tuple(*value):
     """Create a tuple structure in value field of AttrStmt
 

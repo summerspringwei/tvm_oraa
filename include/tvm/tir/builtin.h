@@ -750,6 +750,17 @@ TVM_DLL const Op& start_profile_intrinsic();
  */
 TVM_DLL const Op& end_profile_intrinsic();
 
+
+/*!
+* \brief Cooperative group API grid sync.
+* Note this requires launching kernel with `cudaLaunchCooperativeKernel` API.
+*
+* cooperative_groups::grid_group grid = cooperative_groups::this_grid();
+* ...CUDA kernel code...
+* grid.sync();
+*/
+TVM_DLL const Op& grid_sync();
+
 /*! \brief The kind of structure field info used in intrinsic */
 enum TVMStructFieldKind : int {
   // array head address
