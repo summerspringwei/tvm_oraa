@@ -557,6 +557,22 @@ def hexagon(dev_id=0):
     return Device(Device.kDLHexagon, dev_id)
 
 
+def oraa(dev_id=0):
+    """Construct a Open Research AI Architecture device
+
+    Parameters
+    ----------
+    dev_id : int, optional
+        The integer device id
+
+    Returns
+    -------
+    dev : Device
+        The created device
+    """
+    return Device(Device.kDLORAA, dev_id)
+
+
 def webgpu(dev_id=0):
     """Construct a webgpu device.
 

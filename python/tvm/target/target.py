@@ -760,6 +760,12 @@ def hexagon(cpu_ver="v66", **kwargs):
     return Target(" ".join(["hexagon"] + args_list))
 
 
+def oraa(model="unknown", options=None):
+    opts = ["-device=oraa", "-model=%s" % model]
+    opts = _merge_opts(opts, options)
+    return Target(" ".join(["oraa"] + opts))
+
+
 STM32_SUPPORTED_SERIES = {
     # High-Performance
     "stm32H7xx": ["-keys=arm_cpu,cpu", "-device=arm_cpu", "-mcpu=cortex-m7", "-march=armv7e-m"],

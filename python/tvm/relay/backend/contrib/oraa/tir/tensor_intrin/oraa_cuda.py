@@ -105,8 +105,8 @@ def pixel_shuffle_n2c8h4w4_impl(a: T.handle, b: T.handle) -> None:
     b: tvm.script.tir.handle
       the output data pointer
     """
-    A = T.match_buffer(a, (2, 8, 4, 4), dtype='int8')
-    B = T.match_buffer(b, (2, 2, 8, 8), dtype='int8')
+    A = T.match_buffer(a, (2, 8, 4, 4), dtype='int8', scope="shared")
+    B = T.match_buffer(b, (2, 2, 8, 8), dtype='int8', scope="shared")
     with T.block("root"):
         T.reads(A[0:2, 0:8, 0:4, 0:4])
         T.writes(B[0:2, 0:2, 0:8, 0:8])

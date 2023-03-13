@@ -213,6 +213,7 @@ class Device(ctypes.Structure):
     kDLOneAPI = 14
     kDLWebGPU = 15
     kDLHexagon = 16
+    kDLORAA = 17
     kDLAOCL = 32
     kDLSDAccel = 33
     kOpenGL = 34
@@ -234,6 +235,7 @@ class Device(ctypes.Structure):
         kDLOneAPI: "oneapi",
         kDLWebGPU: "webgpu",
         kDLHexagon: "hexagon",
+        kDLORAA: "oraa",
         kDLAOCL: "aocl",
         kDLSDAccel: "sdaccel",
         kOpenGL: "opengl",
@@ -261,6 +263,7 @@ class Device(ctypes.Structure):
         "rocm": kDLROCM,
         "ext_dev": kDLExtDev,
         "hexagon": kDLHexagon,
+        "oraa": kDLORAA,
         "webgpu": kDLWebGPU,
     }
 
