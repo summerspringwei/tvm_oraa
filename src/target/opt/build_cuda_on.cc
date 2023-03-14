@@ -130,10 +130,11 @@ runtime::Module BuildCUDA(IRModule mod, Target target) {
   bool output_ssa = false;
   CodeGenCUDA cg;
   cg.Init(output_ssa);
-
+  int func_id = 0;
   for (auto kv : mod->functions) {
     ICHECK(kv.second->IsInstance<PrimFuncNode>()) << "CodeGenCUDA: Can only take PrimFunc";
     auto f = Downcast<PrimFunc>(kv.second);
+    std::cout << "Build CUDA func_id: " << func_id++ << " " << PrettyPrint(f) << std::endl;
     auto calling_conv = f->GetAttr<Integer>(tvm::attr::kCallingConv);
     ICHECK(calling_conv == CallingConv::kDeviceKernelLaunch)
         << "CodeGenCUDA: expect calling_conv equals CallingConv::kDeviceKernelLaunch";

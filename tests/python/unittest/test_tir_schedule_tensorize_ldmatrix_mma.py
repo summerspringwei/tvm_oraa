@@ -48,7 +48,7 @@ from tvm.testing.tir import mma_schedule
 M = 4096
 N = 4096
 K = 4096
-measure_perf = False
+measure_perf = True
 gflops = (N * M * K) * 2 / 1e9
 
 

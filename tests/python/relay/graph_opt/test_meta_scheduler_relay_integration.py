@@ -88,31 +88,9 @@ def test_meta_schedule_relay_integration_oraa_pixel_shuffle(input_shape: list):
                                        output_torch.numpy())
 
 
-def test_tensorize_oraa_pixel_shuffle(input_shape: list):
-    """Test tensorize of pixel shuffle computation"""
-    input_tensor = te.placeholder(input_shape, dtype="int8", name="input_name")
-    output_tensor = pixel_shuffle_cuda.pixel_shuffle_nchw(input_tensor, (2, 2))
-    output_tensor = pixel_shuffle_cuda.pixel_shuffle_nchw(input_tensor, [2, 2])
-    func = te.create_prim_func([input_tensor, output_tensor])
-    ir_module_from_te = IRModule({"main": func})
-
-    sch = tir.Schedule(ir_module_from_te)
-    block_pixel_shuffle = sch.get_block("PixelShuffle")
-    (n, c, h, w) = sch.get_loops(block_pixel_shuffle)
-    no, ni = sch.split(n, factors=[None, 2])
-    co, ci = sch.split(c, factors=[None, 2])
-    ho, hi = sch.split(h, factors=[None, 8])
-    wo, wi = sch.split(w, factors=[None, 8])
-    sch.reorder(no, co, ho, wo, ni, ci, hi, wi)
-
-    sch.tensorize(ni, oraa_cuda.ORAA_PIXEL_SHUFFLE_N2C8H4W4_INTRIN)
-
-    print(sch.mod.script())
-
-
 if __name__ == "__main__":
     # test_meta_schedule_dynamic_loop_extent()
     # test_pixel_shuffle((1, 64, 28, 28))
     # test_pixel_shuffle((1, 4, 8, 8))
     # test_meta_schedule_relay_integration_oraa_pixel_shuffle((1, 4, 8, 8))
-    test_tensorize_oraa_pixel_shuffle((2, 16, 8, 8))
+    pass
