@@ -451,6 +451,8 @@ IRModule SequentialNode::operator()(IRModule mod, const PassContext& pass_ctx) c
       mod = GetPass(it)(std::move(mod), pass_ctx);
     }
     mod = pass(std::move(mod), pass_ctx);
+    
+    VLOG(2) << pass->Info() << PrettyPrint(mod);
   }
   return mod;
 }

@@ -52,7 +52,7 @@ def mma_schedule(
 
     block_inner = sch.blockize(i_tc)
     block_outer, block_inner = block_inner, block
-
+    
     num_ty = i_factors[2] * j_factors[2]
 
     i0, i1, i2, i3, i4 = sch.split(i, factors=i_factors)

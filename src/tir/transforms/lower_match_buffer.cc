@@ -45,6 +45,7 @@ class MatchBufferLower : public StmtExprMutator {
  private:
   Stmt VisitStmt_(const BlockNode* op) final {
     for (const MatchBufferRegion& match_buffer : op->match_buffers) {
+      VLOG(2) << PrettyPrint(match_buffer) << std::endl;
       CheckAndUpdateVarMap(match_buffer);
     }
 
@@ -149,7 +150,7 @@ class MatchBufferLower : public StmtExprMutator {
     const Buffer& buffer = match_buffer->buffer;
     const BufferRegion& source = VisitBufferRegion(match_buffer->source);
     const Buffer& source_buffer = source->buffer;
-
+    VLOG(2) << PrettyPrint(source);
     // Step.1.1. Check scope & dtype
     ICHECK_EQ(buffer.scope(), source_buffer.scope())
         << "MatchBuffer " << buffer << " scope mismatch:" << buffer.scope() << "vs."
@@ -186,6 +187,8 @@ class MatchBufferLower : public StmtExprMutator {
       }
 
       Array<PrimExpr> buffer_start_indices = source_buffer->ElemOffset(indices);
+      VLOG(2) << PrettyPrint(buffer_start_indices);
+      VLOG(2) << PrettyPrint(buffer->elem_offset);
       if (buffer_start_indices.size() == 1) {
         Bind(buffer->elem_offset, buffer_start_indices[0], buffer->name + ".elem_offset");
         CHECK(analyzer_.CanProve(truncmod(buffer->elem_offset, buffer->offset_factor) == 0))
@@ -229,6 +232,7 @@ class MatchBufferLower : public StmtExprMutator {
   }
 
   void Bind(const PrimExpr& arg, PrimExpr value, const std::string& arg_name = "argument") {
+
     CHECK_EQ(arg.dtype(), value.dtype())
         << "The data type mismatched: " << arg->dtype << " vs. " << value->dtype;
     // Handle recursive case
