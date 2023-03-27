@@ -175,11 +175,11 @@ class CthreadUnroller : public StmtExprMutator {
     for (int i = 0; i < value; ++i) {
       PrimExpr extent = analyzer_.Simplify(op->min + make_const(op->loop_var.dtype(), i));
       auto v = IntImm(op->loop_var.dtype(), extent.as<IntImmNode>()->value);
-      VLOG(2) << "extent:" << PrettyPrint(extent) << ", loop_var is:" << PrettyPrint(op->loop_var);
+      // VLOG(2) << "extent:" << PrettyPrint(extent) << ", loop_var is:" << PrettyPrint(op->loop_var);
       vmap.Set(op->loop_var, v);
       // vmap.Set(op->loop_var, op->min + make_const(op->loop_var.dtype(), i));
       Stmt step = Substitute(body, vmap);
-      VLOG(2) << "generated: " << PrettyPrint(step);
+      // VLOG(2) << "generated: " << PrettyPrint(step);
       unrolled.push_back(step);
     }
     Stmt ret = SeqStmt::Flatten(unrolled);

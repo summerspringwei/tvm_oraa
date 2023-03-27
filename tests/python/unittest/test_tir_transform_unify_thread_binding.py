@@ -25,6 +25,8 @@ from tvm.script import tir as T
 
 def _check(original, transformed):
     mod = tvm.IRModule.from_expr(original)
+    print(original)
+    print(transformed)
     mod = tvm.tir.transform.UnifyThreadBinding()(mod)
     mod = tvm.tir.transform.Simplify()(mod)
     tvm.ir.assert_structural_equal(mod["main"], transformed, True)
@@ -294,8 +296,19 @@ def test_lower_te():
     s[b].bind(b.op.axis[2], te.thread_axis("threadIdx.x"))
     orig_mod = tvm.driver.build_module.schedule_to_module(s, [a, b])
     mod = tvm.tir.transform.UnifyThreadBinding()(orig_mod)
+    print(orig_mod)
+    print(mod)
     tvm.ir.assert_structural_equal(mod, orig_mod)  # UnifyThreadBinding should do nothing on TE
 
 
 if __name__ == "__main__":
-    tvm.testing.main()
+    # tvm.testing.main()
+    test_thread_x()
+    test_thread_x_different_dtype()
+    test_env_thread_x()
+    test_vthread_x()
+    test_two_thread_x_in_same_kernel_not_equal()
+    test_kernels_with_different_size()
+    test_implicit_block()
+    test_lower_te()
+    
