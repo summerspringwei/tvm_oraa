@@ -241,6 +241,11 @@ def UnrollLoop():
     """
     return _ffi_api.UnrollLoop()  # type: ignore
 
+def UnrollCthread():
+    """Unroll thread loop, set thread_binding var to its constant value
+    """
+    return _ffi_api.UnrollCthread() # type: ignore
+
 
 def ReduceBranchingThroughOvercompute():
     """Reduce branching by introducing overcompute
