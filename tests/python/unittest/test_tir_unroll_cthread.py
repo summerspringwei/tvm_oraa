@@ -71,8 +71,7 @@ def test_unroll_coreid2():
     sch = tir.Schedule(ir_module)
     (n, c, h, w) = sch.get_loops("Add4")
     sch.reorder(c,h,w,n)
-    # sch.bind(n, "blockIdx.x")
-    sch.bind(c, "threadIdx.x")
+    sch.bind(n, "threadIdx.x")
     sched_mod = sch.mod
     print(sched_mod.script())
     seq = tvm.transform.Sequential(
@@ -89,7 +88,7 @@ def test_unroll_multi_thread():
     # print(ir_module)
     sch = tir.Schedule(ir_module)
     (n, c, h, w) = sch.get_loops("Add4")
-    sch.reorder(c,h,w,n)
+    sch.reorder(h,w,n,c)
     sch.bind(n, "blockIdx.x")
     sch.bind(c, "threadIdx.x")
     sched_mod = sch.mod
