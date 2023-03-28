@@ -1,0 +1,506 @@
+(base) zhangshuoming@ACT101:~/workspace/intel_tvm$ /home/zhangshuoming/miniconda3/bin/python /home/zhangshuoming/workspace/intel_tvm/parts/unroll_coreid/unroll_intel.py
+unroll1:
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(in0: T.Buffer[(4, 16, 4, 4), "int8"], in1: T.Buffer[(4, 16, 4, 4), "int8"], in2: T.Buffer[(4, 16, 4, 4), "int8"], in3: T.Buffer[(4, 16, 4, 4), "int8"], Add4: T.Buffer[(4, 16, 4, 4), "int8"]):
+        # function attr dict
+        T.func_attr({"tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        for c, h, w in T.grid(16, 4, 4):
+            for n in T.thread_binding(4, thread="cthread"):
+                with T.block("Add4"):
+                    T.reads(in0[n, c, h, w], in1[n, c, h, w], in2[n, c, h, w], in3[n, c, h, w])
+                    T.writes(Add4[n, c, h, w])
+                    Add4[n, c, h, w] = in0[n, c, h, w] + in1[n, c, h, w] + in2[n, c, h, w] + in3[n, c, h, w]
+    
+
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(in0: T.Buffer[(4, 16, 4, 4), "int8"], in1: T.Buffer[(4, 16, 4, 4), "int8"], in2: T.Buffer[(4, 16, 4, 4), "int8"], in3: T.Buffer[(4, 16, 4, 4), "int8"], Add4: T.Buffer[(4, 16, 4, 4), "int8"]):
+        # function attr dict
+        T.func_attr({"tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        for c, h, w in T.grid(16, 4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, c, h, w], in1[0, c, h, w], in2[0, c, h, w], in3[0, c, h, w])
+                T.writes(Add4[0, c, h, w])
+                Add4[0, c, h, w] = in0[0, c, h, w] + in1[0, c, h, w] + in2[0, c, h, w] + in3[0, c, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, c, h, w], in1[1, c, h, w], in2[1, c, h, w], in3[1, c, h, w])
+                T.writes(Add4[1, c, h, w])
+                Add4[1, c, h, w] = in0[1, c, h, w] + in1[1, c, h, w] + in2[1, c, h, w] + in3[1, c, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, c, h, w], in1[2, c, h, w], in2[2, c, h, w], in3[2, c, h, w])
+                T.writes(Add4[2, c, h, w])
+                Add4[2, c, h, w] = in0[2, c, h, w] + in1[2, c, h, w] + in2[2, c, h, w] + in3[2, c, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, c, h, w], in1[3, c, h, w], in2[3, c, h, w], in3[3, c, h, w])
+                T.writes(Add4[3, c, h, w])
+                Add4[3, c, h, w] = in0[3, c, h, w] + in1[3, c, h, w] + in2[3, c, h, w] + in3[3, c, h, w]
+    
+
+unroll2:
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(in0: T.Buffer[(4, 16, 4, 4), "int8"], in1: T.Buffer[(4, 16, 4, 4), "int8"], in2: T.Buffer[(4, 16, 4, 4), "int8"], in3: T.Buffer[(4, 16, 4, 4), "int8"], Add4: T.Buffer[(4, 16, 4, 4), "int8"]):
+        # function attr dict
+        T.func_attr({"tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        for c in T.thread_binding(16, thread="threadIdx.x"):
+            for h, w, n in T.grid(4, 4, 4):
+                with T.block("Add4"):
+                    v_n, v_c, v_h, v_w = T.axis.remap("SSSS", [n, c, h, w])
+                    T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                    T.writes(Add4[v_n, v_c, v_h, v_w])
+                    Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+    
+
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(in0: T.Buffer[(4, 16, 4, 4), "int8"], in1: T.Buffer[(4, 16, 4, 4), "int8"], in2: T.Buffer[(4, 16, 4, 4), "int8"], in3: T.Buffer[(4, 16, 4, 4), "int8"], Add4: T.Buffer[(4, 16, 4, 4), "int8"]):
+        # function attr dict
+        T.func_attr({"tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 0)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 1)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 2)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 3)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 4)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 5)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 6)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 7)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 8)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 9)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 10)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 11)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 12)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 13)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 14)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+        for h, w, n in T.grid(4, 4, 4):
+            with T.block("Add4"):
+                v_n = T.axis.spatial(4, n)
+                v_c = T.axis.spatial(16, 15)
+                v_h, v_w = T.axis.remap("SS", [h, w])
+                T.reads(in0[v_n, v_c, v_h, v_w], in1[v_n, v_c, v_h, v_w], in2[v_n, v_c, v_h, v_w], in3[v_n, v_c, v_h, v_w])
+                T.writes(Add4[v_n, v_c, v_h, v_w])
+                Add4[v_n, v_c, v_h, v_w] = in0[v_n, v_c, v_h, v_w] + in1[v_n, v_c, v_h, v_w] + in2[v_n, v_c, v_h, v_w] + in3[v_n, v_c, v_h, v_w]
+    
+
+unroll3:
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(in0: T.Buffer[(4, 16, 4, 4), "int8"], in1: T.Buffer[(4, 16, 4, 4), "int8"], in2: T.Buffer[(4, 16, 4, 4), "int8"], in3: T.Buffer[(4, 16, 4, 4), "int8"], Add4: T.Buffer[(4, 16, 4, 4), "int8"]):
+        # function attr dict
+        T.func_attr({"tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        for c in T.thread_binding(16, thread="threadIdx.x"):
+            for h, w in T.grid(4, 4):
+                for n in T.thread_binding(4, thread="blockIdx.x"):
+                    with T.block("Add4"):
+                        T.reads(in0[n, c, h, w], in1[n, c, h, w], in2[n, c, h, w], in3[n, c, h, w])
+                        T.writes(Add4[n, c, h, w])
+                        Add4[n, c, h, w] = in0[n, c, h, w] + in1[n, c, h, w] + in2[n, c, h, w] + in3[n, c, h, w]
+    
+
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(in0: T.Buffer[(4, 16, 4, 4), "int8"], in1: T.Buffer[(4, 16, 4, 4), "int8"], in2: T.Buffer[(4, 16, 4, 4), "int8"], in3: T.Buffer[(4, 16, 4, 4), "int8"], Add4: T.Buffer[(4, 16, 4, 4), "int8"]):
+        # function attr dict
+        T.func_attr({"tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 0, h, w], in1[0, 0, h, w], in2[0, 0, h, w], in3[0, 0, h, w])
+                T.writes(Add4[0, 0, h, w])
+                Add4[0, 0, h, w] = in0[0, 0, h, w] + in1[0, 0, h, w] + in2[0, 0, h, w] + in3[0, 0, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 0, h, w], in1[1, 0, h, w], in2[1, 0, h, w], in3[1, 0, h, w])
+                T.writes(Add4[1, 0, h, w])
+                Add4[1, 0, h, w] = in0[1, 0, h, w] + in1[1, 0, h, w] + in2[1, 0, h, w] + in3[1, 0, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 0, h, w], in1[2, 0, h, w], in2[2, 0, h, w], in3[2, 0, h, w])
+                T.writes(Add4[2, 0, h, w])
+                Add4[2, 0, h, w] = in0[2, 0, h, w] + in1[2, 0, h, w] + in2[2, 0, h, w] + in3[2, 0, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 0, h, w], in1[3, 0, h, w], in2[3, 0, h, w], in3[3, 0, h, w])
+                T.writes(Add4[3, 0, h, w])
+                Add4[3, 0, h, w] = in0[3, 0, h, w] + in1[3, 0, h, w] + in2[3, 0, h, w] + in3[3, 0, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 1, h, w], in1[0, 1, h, w], in2[0, 1, h, w], in3[0, 1, h, w])
+                T.writes(Add4[0, 1, h, w])
+                Add4[0, 1, h, w] = in0[0, 1, h, w] + in1[0, 1, h, w] + in2[0, 1, h, w] + in3[0, 1, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 1, h, w], in1[1, 1, h, w], in2[1, 1, h, w], in3[1, 1, h, w])
+                T.writes(Add4[1, 1, h, w])
+                Add4[1, 1, h, w] = in0[1, 1, h, w] + in1[1, 1, h, w] + in2[1, 1, h, w] + in3[1, 1, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 1, h, w], in1[2, 1, h, w], in2[2, 1, h, w], in3[2, 1, h, w])
+                T.writes(Add4[2, 1, h, w])
+                Add4[2, 1, h, w] = in0[2, 1, h, w] + in1[2, 1, h, w] + in2[2, 1, h, w] + in3[2, 1, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 1, h, w], in1[3, 1, h, w], in2[3, 1, h, w], in3[3, 1, h, w])
+                T.writes(Add4[3, 1, h, w])
+                Add4[3, 1, h, w] = in0[3, 1, h, w] + in1[3, 1, h, w] + in2[3, 1, h, w] + in3[3, 1, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 2, h, w], in1[0, 2, h, w], in2[0, 2, h, w], in3[0, 2, h, w])
+                T.writes(Add4[0, 2, h, w])
+                Add4[0, 2, h, w] = in0[0, 2, h, w] + in1[0, 2, h, w] + in2[0, 2, h, w] + in3[0, 2, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 2, h, w], in1[1, 2, h, w], in2[1, 2, h, w], in3[1, 2, h, w])
+                T.writes(Add4[1, 2, h, w])
+                Add4[1, 2, h, w] = in0[1, 2, h, w] + in1[1, 2, h, w] + in2[1, 2, h, w] + in3[1, 2, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 2, h, w], in1[2, 2, h, w], in2[2, 2, h, w], in3[2, 2, h, w])
+                T.writes(Add4[2, 2, h, w])
+                Add4[2, 2, h, w] = in0[2, 2, h, w] + in1[2, 2, h, w] + in2[2, 2, h, w] + in3[2, 2, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 2, h, w], in1[3, 2, h, w], in2[3, 2, h, w], in3[3, 2, h, w])
+                T.writes(Add4[3, 2, h, w])
+                Add4[3, 2, h, w] = in0[3, 2, h, w] + in1[3, 2, h, w] + in2[3, 2, h, w] + in3[3, 2, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 3, h, w], in1[0, 3, h, w], in2[0, 3, h, w], in3[0, 3, h, w])
+                T.writes(Add4[0, 3, h, w])
+                Add4[0, 3, h, w] = in0[0, 3, h, w] + in1[0, 3, h, w] + in2[0, 3, h, w] + in3[0, 3, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 3, h, w], in1[1, 3, h, w], in2[1, 3, h, w], in3[1, 3, h, w])
+                T.writes(Add4[1, 3, h, w])
+                Add4[1, 3, h, w] = in0[1, 3, h, w] + in1[1, 3, h, w] + in2[1, 3, h, w] + in3[1, 3, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 3, h, w], in1[2, 3, h, w], in2[2, 3, h, w], in3[2, 3, h, w])
+                T.writes(Add4[2, 3, h, w])
+                Add4[2, 3, h, w] = in0[2, 3, h, w] + in1[2, 3, h, w] + in2[2, 3, h, w] + in3[2, 3, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 3, h, w], in1[3, 3, h, w], in2[3, 3, h, w], in3[3, 3, h, w])
+                T.writes(Add4[3, 3, h, w])
+                Add4[3, 3, h, w] = in0[3, 3, h, w] + in1[3, 3, h, w] + in2[3, 3, h, w] + in3[3, 3, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 4, h, w], in1[0, 4, h, w], in2[0, 4, h, w], in3[0, 4, h, w])
+                T.writes(Add4[0, 4, h, w])
+                Add4[0, 4, h, w] = in0[0, 4, h, w] + in1[0, 4, h, w] + in2[0, 4, h, w] + in3[0, 4, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 4, h, w], in1[1, 4, h, w], in2[1, 4, h, w], in3[1, 4, h, w])
+                T.writes(Add4[1, 4, h, w])
+                Add4[1, 4, h, w] = in0[1, 4, h, w] + in1[1, 4, h, w] + in2[1, 4, h, w] + in3[1, 4, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 4, h, w], in1[2, 4, h, w], in2[2, 4, h, w], in3[2, 4, h, w])
+                T.writes(Add4[2, 4, h, w])
+                Add4[2, 4, h, w] = in0[2, 4, h, w] + in1[2, 4, h, w] + in2[2, 4, h, w] + in3[2, 4, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 4, h, w], in1[3, 4, h, w], in2[3, 4, h, w], in3[3, 4, h, w])
+                T.writes(Add4[3, 4, h, w])
+                Add4[3, 4, h, w] = in0[3, 4, h, w] + in1[3, 4, h, w] + in2[3, 4, h, w] + in3[3, 4, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 5, h, w], in1[0, 5, h, w], in2[0, 5, h, w], in3[0, 5, h, w])
+                T.writes(Add4[0, 5, h, w])
+                Add4[0, 5, h, w] = in0[0, 5, h, w] + in1[0, 5, h, w] + in2[0, 5, h, w] + in3[0, 5, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 5, h, w], in1[1, 5, h, w], in2[1, 5, h, w], in3[1, 5, h, w])
+                T.writes(Add4[1, 5, h, w])
+                Add4[1, 5, h, w] = in0[1, 5, h, w] + in1[1, 5, h, w] + in2[1, 5, h, w] + in3[1, 5, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 5, h, w], in1[2, 5, h, w], in2[2, 5, h, w], in3[2, 5, h, w])
+                T.writes(Add4[2, 5, h, w])
+                Add4[2, 5, h, w] = in0[2, 5, h, w] + in1[2, 5, h, w] + in2[2, 5, h, w] + in3[2, 5, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 5, h, w], in1[3, 5, h, w], in2[3, 5, h, w], in3[3, 5, h, w])
+                T.writes(Add4[3, 5, h, w])
+                Add4[3, 5, h, w] = in0[3, 5, h, w] + in1[3, 5, h, w] + in2[3, 5, h, w] + in3[3, 5, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 6, h, w], in1[0, 6, h, w], in2[0, 6, h, w], in3[0, 6, h, w])
+                T.writes(Add4[0, 6, h, w])
+                Add4[0, 6, h, w] = in0[0, 6, h, w] + in1[0, 6, h, w] + in2[0, 6, h, w] + in3[0, 6, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 6, h, w], in1[1, 6, h, w], in2[1, 6, h, w], in3[1, 6, h, w])
+                T.writes(Add4[1, 6, h, w])
+                Add4[1, 6, h, w] = in0[1, 6, h, w] + in1[1, 6, h, w] + in2[1, 6, h, w] + in3[1, 6, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 6, h, w], in1[2, 6, h, w], in2[2, 6, h, w], in3[2, 6, h, w])
+                T.writes(Add4[2, 6, h, w])
+                Add4[2, 6, h, w] = in0[2, 6, h, w] + in1[2, 6, h, w] + in2[2, 6, h, w] + in3[2, 6, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 6, h, w], in1[3, 6, h, w], in2[3, 6, h, w], in3[3, 6, h, w])
+                T.writes(Add4[3, 6, h, w])
+                Add4[3, 6, h, w] = in0[3, 6, h, w] + in1[3, 6, h, w] + in2[3, 6, h, w] + in3[3, 6, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 7, h, w], in1[0, 7, h, w], in2[0, 7, h, w], in3[0, 7, h, w])
+                T.writes(Add4[0, 7, h, w])
+                Add4[0, 7, h, w] = in0[0, 7, h, w] + in1[0, 7, h, w] + in2[0, 7, h, w] + in3[0, 7, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 7, h, w], in1[1, 7, h, w], in2[1, 7, h, w], in3[1, 7, h, w])
+                T.writes(Add4[1, 7, h, w])
+                Add4[1, 7, h, w] = in0[1, 7, h, w] + in1[1, 7, h, w] + in2[1, 7, h, w] + in3[1, 7, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 7, h, w], in1[2, 7, h, w], in2[2, 7, h, w], in3[2, 7, h, w])
+                T.writes(Add4[2, 7, h, w])
+                Add4[2, 7, h, w] = in0[2, 7, h, w] + in1[2, 7, h, w] + in2[2, 7, h, w] + in3[2, 7, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 7, h, w], in1[3, 7, h, w], in2[3, 7, h, w], in3[3, 7, h, w])
+                T.writes(Add4[3, 7, h, w])
+                Add4[3, 7, h, w] = in0[3, 7, h, w] + in1[3, 7, h, w] + in2[3, 7, h, w] + in3[3, 7, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 8, h, w], in1[0, 8, h, w], in2[0, 8, h, w], in3[0, 8, h, w])
+                T.writes(Add4[0, 8, h, w])
+                Add4[0, 8, h, w] = in0[0, 8, h, w] + in1[0, 8, h, w] + in2[0, 8, h, w] + in3[0, 8, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 8, h, w], in1[1, 8, h, w], in2[1, 8, h, w], in3[1, 8, h, w])
+                T.writes(Add4[1, 8, h, w])
+                Add4[1, 8, h, w] = in0[1, 8, h, w] + in1[1, 8, h, w] + in2[1, 8, h, w] + in3[1, 8, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 8, h, w], in1[2, 8, h, w], in2[2, 8, h, w], in3[2, 8, h, w])
+                T.writes(Add4[2, 8, h, w])
+                Add4[2, 8, h, w] = in0[2, 8, h, w] + in1[2, 8, h, w] + in2[2, 8, h, w] + in3[2, 8, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 8, h, w], in1[3, 8, h, w], in2[3, 8, h, w], in3[3, 8, h, w])
+                T.writes(Add4[3, 8, h, w])
+                Add4[3, 8, h, w] = in0[3, 8, h, w] + in1[3, 8, h, w] + in2[3, 8, h, w] + in3[3, 8, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 9, h, w], in1[0, 9, h, w], in2[0, 9, h, w], in3[0, 9, h, w])
+                T.writes(Add4[0, 9, h, w])
+                Add4[0, 9, h, w] = in0[0, 9, h, w] + in1[0, 9, h, w] + in2[0, 9, h, w] + in3[0, 9, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 9, h, w], in1[1, 9, h, w], in2[1, 9, h, w], in3[1, 9, h, w])
+                T.writes(Add4[1, 9, h, w])
+                Add4[1, 9, h, w] = in0[1, 9, h, w] + in1[1, 9, h, w] + in2[1, 9, h, w] + in3[1, 9, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 9, h, w], in1[2, 9, h, w], in2[2, 9, h, w], in3[2, 9, h, w])
+                T.writes(Add4[2, 9, h, w])
+                Add4[2, 9, h, w] = in0[2, 9, h, w] + in1[2, 9, h, w] + in2[2, 9, h, w] + in3[2, 9, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 9, h, w], in1[3, 9, h, w], in2[3, 9, h, w], in3[3, 9, h, w])
+                T.writes(Add4[3, 9, h, w])
+                Add4[3, 9, h, w] = in0[3, 9, h, w] + in1[3, 9, h, w] + in2[3, 9, h, w] + in3[3, 9, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 10, h, w], in1[0, 10, h, w], in2[0, 10, h, w], in3[0, 10, h, w])
+                T.writes(Add4[0, 10, h, w])
+                Add4[0, 10, h, w] = in0[0, 10, h, w] + in1[0, 10, h, w] + in2[0, 10, h, w] + in3[0, 10, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 10, h, w], in1[1, 10, h, w], in2[1, 10, h, w], in3[1, 10, h, w])
+                T.writes(Add4[1, 10, h, w])
+                Add4[1, 10, h, w] = in0[1, 10, h, w] + in1[1, 10, h, w] + in2[1, 10, h, w] + in3[1, 10, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 10, h, w], in1[2, 10, h, w], in2[2, 10, h, w], in3[2, 10, h, w])
+                T.writes(Add4[2, 10, h, w])
+                Add4[2, 10, h, w] = in0[2, 10, h, w] + in1[2, 10, h, w] + in2[2, 10, h, w] + in3[2, 10, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 10, h, w], in1[3, 10, h, w], in2[3, 10, h, w], in3[3, 10, h, w])
+                T.writes(Add4[3, 10, h, w])
+                Add4[3, 10, h, w] = in0[3, 10, h, w] + in1[3, 10, h, w] + in2[3, 10, h, w] + in3[3, 10, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 11, h, w], in1[0, 11, h, w], in2[0, 11, h, w], in3[0, 11, h, w])
+                T.writes(Add4[0, 11, h, w])
+                Add4[0, 11, h, w] = in0[0, 11, h, w] + in1[0, 11, h, w] + in2[0, 11, h, w] + in3[0, 11, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 11, h, w], in1[1, 11, h, w], in2[1, 11, h, w], in3[1, 11, h, w])
+                T.writes(Add4[1, 11, h, w])
+                Add4[1, 11, h, w] = in0[1, 11, h, w] + in1[1, 11, h, w] + in2[1, 11, h, w] + in3[1, 11, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 11, h, w], in1[2, 11, h, w], in2[2, 11, h, w], in3[2, 11, h, w])
+                T.writes(Add4[2, 11, h, w])
+                Add4[2, 11, h, w] = in0[2, 11, h, w] + in1[2, 11, h, w] + in2[2, 11, h, w] + in3[2, 11, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 11, h, w], in1[3, 11, h, w], in2[3, 11, h, w], in3[3, 11, h, w])
+                T.writes(Add4[3, 11, h, w])
+                Add4[3, 11, h, w] = in0[3, 11, h, w] + in1[3, 11, h, w] + in2[3, 11, h, w] + in3[3, 11, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 12, h, w], in1[0, 12, h, w], in2[0, 12, h, w], in3[0, 12, h, w])
+                T.writes(Add4[0, 12, h, w])
+                Add4[0, 12, h, w] = in0[0, 12, h, w] + in1[0, 12, h, w] + in2[0, 12, h, w] + in3[0, 12, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 12, h, w], in1[1, 12, h, w], in2[1, 12, h, w], in3[1, 12, h, w])
+                T.writes(Add4[1, 12, h, w])
+                Add4[1, 12, h, w] = in0[1, 12, h, w] + in1[1, 12, h, w] + in2[1, 12, h, w] + in3[1, 12, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 12, h, w], in1[2, 12, h, w], in2[2, 12, h, w], in3[2, 12, h, w])
+                T.writes(Add4[2, 12, h, w])
+                Add4[2, 12, h, w] = in0[2, 12, h, w] + in1[2, 12, h, w] + in2[2, 12, h, w] + in3[2, 12, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 12, h, w], in1[3, 12, h, w], in2[3, 12, h, w], in3[3, 12, h, w])
+                T.writes(Add4[3, 12, h, w])
+                Add4[3, 12, h, w] = in0[3, 12, h, w] + in1[3, 12, h, w] + in2[3, 12, h, w] + in3[3, 12, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 13, h, w], in1[0, 13, h, w], in2[0, 13, h, w], in3[0, 13, h, w])
+                T.writes(Add4[0, 13, h, w])
+                Add4[0, 13, h, w] = in0[0, 13, h, w] + in1[0, 13, h, w] + in2[0, 13, h, w] + in3[0, 13, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 13, h, w], in1[1, 13, h, w], in2[1, 13, h, w], in3[1, 13, h, w])
+                T.writes(Add4[1, 13, h, w])
+                Add4[1, 13, h, w] = in0[1, 13, h, w] + in1[1, 13, h, w] + in2[1, 13, h, w] + in3[1, 13, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 13, h, w], in1[2, 13, h, w], in2[2, 13, h, w], in3[2, 13, h, w])
+                T.writes(Add4[2, 13, h, w])
+                Add4[2, 13, h, w] = in0[2, 13, h, w] + in1[2, 13, h, w] + in2[2, 13, h, w] + in3[2, 13, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 13, h, w], in1[3, 13, h, w], in2[3, 13, h, w], in3[3, 13, h, w])
+                T.writes(Add4[3, 13, h, w])
+                Add4[3, 13, h, w] = in0[3, 13, h, w] + in1[3, 13, h, w] + in2[3, 13, h, w] + in3[3, 13, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 14, h, w], in1[0, 14, h, w], in2[0, 14, h, w], in3[0, 14, h, w])
+                T.writes(Add4[0, 14, h, w])
+                Add4[0, 14, h, w] = in0[0, 14, h, w] + in1[0, 14, h, w] + in2[0, 14, h, w] + in3[0, 14, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 14, h, w], in1[1, 14, h, w], in2[1, 14, h, w], in3[1, 14, h, w])
+                T.writes(Add4[1, 14, h, w])
+                Add4[1, 14, h, w] = in0[1, 14, h, w] + in1[1, 14, h, w] + in2[1, 14, h, w] + in3[1, 14, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 14, h, w], in1[2, 14, h, w], in2[2, 14, h, w], in3[2, 14, h, w])
+                T.writes(Add4[2, 14, h, w])
+                Add4[2, 14, h, w] = in0[2, 14, h, w] + in1[2, 14, h, w] + in2[2, 14, h, w] + in3[2, 14, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 14, h, w], in1[3, 14, h, w], in2[3, 14, h, w], in3[3, 14, h, w])
+                T.writes(Add4[3, 14, h, w])
+                Add4[3, 14, h, w] = in0[3, 14, h, w] + in1[3, 14, h, w] + in2[3, 14, h, w] + in3[3, 14, h, w]
+        for h, w in T.grid(4, 4):
+            with T.block("Add4"):
+                T.reads(in0[0, 15, h, w], in1[0, 15, h, w], in2[0, 15, h, w], in3[0, 15, h, w])
+                T.writes(Add4[0, 15, h, w])
+                Add4[0, 15, h, w] = in0[0, 15, h, w] + in1[0, 15, h, w] + in2[0, 15, h, w] + in3[0, 15, h, w]
+            with T.block("Add4"):
+                T.reads(in0[1, 15, h, w], in1[1, 15, h, w], in2[1, 15, h, w], in3[1, 15, h, w])
+                T.writes(Add4[1, 15, h, w])
+                Add4[1, 15, h, w] = in0[1, 15, h, w] + in1[1, 15, h, w] + in2[1, 15, h, w] + in3[1, 15, h, w]
+            with T.block("Add4"):
+                T.reads(in0[2, 15, h, w], in1[2, 15, h, w], in2[2, 15, h, w], in3[2, 15, h, w])
+                T.writes(Add4[2, 15, h, w])
+                Add4[2, 15, h, w] = in0[2, 15, h, w] + in1[2, 15, h, w] + in2[2, 15, h, w] + in3[2, 15, h, w]
+            with T.block("Add4"):
+                T.reads(in0[3, 15, h, w], in1[3, 15, h, w], in2[3, 15, h, w], in3[3, 15, h, w])
+                T.writes(Add4[3, 15, h, w])
+                Add4[3, 15, h, w] = in0[3, 15, h, w] + in1[3, 15, h, w] + in2[3, 15, h, w] + in3[3, 15, h, w]
+    
