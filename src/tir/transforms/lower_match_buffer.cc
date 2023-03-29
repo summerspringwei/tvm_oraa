@@ -97,6 +97,7 @@ class MatchBufferLower : public StmtExprMutator {
 
       auto n = CopyOnWrite(op);
       n->indices = ConvertIndices(MatchBufferRegion(buffer, source), op->indices);
+      VLOG(2) << "Rewrite " << op->indices << " to " << n->indices;
       n->buffer = source->buffer;
       return Stmt(n);
     }
@@ -114,6 +115,7 @@ class MatchBufferLower : public StmtExprMutator {
       const Buffer& buffer = (*it).first;
       const BufferRegion& source = (*it).second;
       Array<PrimExpr> indices = ConvertIndices(MatchBufferRegion(buffer, source), op->indices);
+      VLOG(2) << "Rewrite " << op->indices << " to " << indices;
       return BufferLoad(source->buffer, indices);
     }
   }
@@ -129,6 +131,33 @@ class MatchBufferLower : public StmtExprMutator {
     Stmt stmt = StmtExprMutator::VisitStmt_(op);
     CHECK(var_map_.find(op->buffer_var) == var_map_.end())
         << "Store from buffer created by match_buffer is not allowed, but got: " << stmt;
+    return stmt;
+  }
+
+  Stmt VisitStmt_(const EvaluateNode* op) final {
+    VLOG(2) << GetRef<Evaluate>(op);
+    auto call = (op->value).as<CallNode>();
+    if(call){
+      VLOG(2) << GetRef<Call>(call);
+      if(call->op.same_as(builtin::oraa_slice_tensor())){
+        int n_dim = Downcast<Integer>(call->args[0])->value;
+        int c_dim = Downcast<Integer>(call->args[1])->value;
+        int h_dim = Downcast<Integer>(call->args[2])->value;
+        int w_dim = Downcast<Integer>(call->args[3])->value;
+        VLOG(2) << n_dim << " " << c_dim << " " << h_dim << " " << w_dim;
+        auto call_access_ptr = (call->args[5]).as<CallNode>();
+        VLOG(2) << GetRef<Call>(call_access_ptr);
+        if(call_access_ptr){
+          if(call_access_ptr->op.same_as(builtin::tvm_access_ptr())){
+            Array<PrimExpr> acc_args = call_access_ptr->args;
+            Var buff_data = Downcast<Var>(acc_args[1]);
+            VLOG(2) << buff_data;
+          }
+        }
+      }
+    }
+    
+    Stmt stmt = StmtExprMutator::VisitStmt_(op);
     return stmt;
   }
 
@@ -188,7 +217,7 @@ class MatchBufferLower : public StmtExprMutator {
 
       Array<PrimExpr> buffer_start_indices = source_buffer->ElemOffset(indices);
       VLOG(2) << PrettyPrint(buffer_start_indices);
-      VLOG(2) << PrettyPrint(buffer->elem_offset);
+      VLOG(2) << PrettyPrint(buffer) << " " << PrettyPrint(buffer->elem_offset);
       if (buffer_start_indices.size() == 1) {
         Bind(buffer->elem_offset, buffer_start_indices[0], buffer->name + ".elem_offset");
         CHECK(analyzer_.CanProve(truncmod(buffer->elem_offset, buffer->offset_factor) == 0))
@@ -232,7 +261,6 @@ class MatchBufferLower : public StmtExprMutator {
   }
 
   void Bind(const PrimExpr& arg, PrimExpr value, const std::string& arg_name = "argument") {
-
     CHECK_EQ(arg.dtype(), value.dtype())
         << "The data type mismatched: " << arg->dtype << " vs. " << value->dtype;
     // Handle recursive case
@@ -241,12 +269,15 @@ class MatchBufferLower : public StmtExprMutator {
       Var v = Downcast<Var>(arg);
       auto it = var_map_.find(v);
       if (it == var_map_.end()) {
+        VLOG(2) <<"Bind " << v << " " << value;
         var_map_.Set(v, value);
         analyzer_.Bind(v, value);
       } else {
+        VLOG(2) <<"AssertBinding " << (*it).second << " " << value;
         AssertBinding((*it).second, value, arg_name);
       }
     } else {
+      VLOG(2) <<"AssertBinding " << arg << " " << value;
       AssertBinding(arg, value, arg_name);
     }
   }
