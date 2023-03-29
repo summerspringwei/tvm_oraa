@@ -1,63 +1,5 @@
 """Intrinsics for Open Research AI Architecture
 
-It seems there is bug in matching loops with extent being one.
-
-@T.prim_func
-def pixel_shuffle_C4H4W4_desc(
-    A: T.Buffer((4, 4, 4), "int8", offset_factor=1),
-    B: T.Buffer((1, 8, 8), "int8", offset_factor=1)
-) -> None:
-  with T.block("root"):
-    T.reads(A[0:4, 0:4, 0:4])
-    T.writes(B[0:1, 0:8, 0:8])
-    for c in T.serial(0, 1):
-      for h in T.serial(0, 8):
-        for w in T.serial(0, 8):
-          with T.block("pixel_shuffel_basic_block"):
-            vc, vh, vw  = T.axis.remap("SSS", [c, h, w])
-            B[vc, vh, vw] = A[vc * 2 * 2 + tvm.tir.indexmod(h, 2) * 2 + tvm.tir.indexmod(w, 2),
-                                  tvm.tir.indexdiv(h, 2),
-                                  tvm.tir.indexdiv(w, 2)]
-
-@T.prim_func
-def pixel_shuffle_C4H4W4_desc(
-    # A: T.Buffer((4, 4, 4), "int8", offset_factor=1),
-    # B: T.Buffer((1, 8, 8), "int8", offset_factor=1)
-    a: T.handle, b: T.handle
-) -> None:
-  A = T.match_buffer(a, (1, 4, 4, 4), dtype='int8')
-  B = T.match_buffer(b, (1, 1, 8, 8), dtype='int8')
-  with T.block("root"):
-    T.reads(A[:, 0:4, 0:4, 0:4])
-    T.writes(B[:, 0:1, 0:8, 0:8])
-    for n, c, h ,w in T.grid(1, 1, 8, 8):
-    # for h, w in T.grid(8, 8):
-      with T.block("pixel_shuffel_basic_block"):
-        vh, vw  = T.axis.remap("SS", [h, w])
-        nn = T.var("int32")
-        cc = T.var("int32")
-        B[vn, vc, vh, vw] = A[vn, vc * 2 * 2 + tvm.tir.indexmod(h, 2) * 2 + tvm.tir.indexmod(w, 2),
-                              tvm.tir.indexdiv(h, 2),
-                              tvm.tir.indexdiv(w, 2)]
-
-
-@T.prim_func
-def pixel_shuffle_C4H4W4_impl(
-    A: T.Buffer((4, 4, 4), "int8", offset_factor=1),
-    B: T.Buffer((1, 8, 8), "int8", offset_factor=1)
-) -> None:
-    with T.block("root"):
-      T.reads(A[0:4, 0:4, 0:4])
-      T.writes(B[0:1, 0:8, 0:8])
-      for c in T.serial(0, 1):
-        for h in T.serial(0, 8):
-          for w in T.serial(0, 8):
-            with T.block("pixel_shuffel_basic_block"):
-              vc, vh, vw  = T.axis.remap("SSS", [c, h, w])
-              B[vc, vh, vw] = A[vc * 2 * 2 + tvm.tir.indexmod(h, 2) * 2 + tvm.tir.indexmod(w, 2),
-                                    tvm.tir.indexdiv(h, 2),
-                                    tvm.tir.indexdiv(w, 2)]
-
 """
 # pylint: disable=invalid-name
 import tvm
@@ -210,17 +152,12 @@ def get_ldtensor_intrin(shared_shape, dtype):
 
     @T.prim_func
     def ldtensor_impl(shared_handle: T.handle, global_handle: T.handle):
-        s0 = T.var("int32")
-        s1 = T.var("int32")
-        s2 = T.var("int32")
-        s3 = T.var("int32")
         global_buff = T.match_buffer(
             global_handle,
             shared_shape,
             dtype,
             offset_factor=1,
-            scope="global",
-            strides=[s0, s1, s2, s3]
+            scope="global"
         )
         shared_buff = T.match_buffer(
             shared_handle,
@@ -230,49 +167,22 @@ def get_ldtensor_intrin(shared_shape, dtype):
             scope="shared"
         )
         n_dim, c_dim, h_dim, w_dim = shared_shape
+        s0 = T.var("int32")
+        s1 = T.var("int32")
+        s2 = T.var("int32")
+        s3 = T.var("int32")
         with T.block("root"):
             T.reads(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
             T.writes(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
             T.evaluate(
-                T.oraa_slice_tensor(n_dim, c_dim, h_dim, w_dim,
-                                  shared_buff.data,
-                                  global_buff.access_ptr("r"),
+                T.oraa_slice_tensor(shared_buff.data,
+                                  global_buff.data,
                                   global_buff.elem_offset,
-                                  s0, s1, s2,
+                                  s0, s1, s2, s3,
+                                  n_dim, c_dim, h_dim, w_dim,
                                   dtype=dtype)
                 )
-        # for n, c, h, w in T.grid(1, 1, 1, 1):
-        #     with T.block("global_to_shared"):
-        #         vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
-        #         T.reads(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-        #         T.writes(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-        #         T.evaluate(
-        #             T.call_intrin("handle",
-        #                           "tir.oraa_slice_tensor",
-        #                           shared_buff.access_ptr('w'),
-        #                           global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim],
-        #                           dtype)
-        #         )
-        # for n, c, h in T.grid(n_dim, c_dim, h_dim):
-        #     with T.block("global_to_shared"):
-        #         vn, vc, vh = T.axis.remap("SSS", [n, c, h])
-        #         T.reads(global_buff[vn, vc, vh, 0:w_dim])
-        #         T.writes(shared_buff[vn, vc, vh, 0:w_dim])
-        #         T.evaluate(
-        #             T.call_intrin("handle",
-        #                           "tir.oraa_slice_tensor",
-        #                           shared_buff.access_ptr('w'),
-        #                           global_buff[vn, vc, vh, 0],
-        #                           dtype)
-        #         )
-        # for n, c, h, w in T.grid(n_dim, c_dim, h_dim, w_dim):
-        #     with T.block("global_to_shared"):
-        #         vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
-        #         T.reads(global_buff[vn, vc, vh, vw])
-        #         T.writes(shared_buff[vn, vc, vh, vw])
-        #         shared_buff[vn, vc, vh, vw] = global_buff[vn, vc, vh, vw]
-        
-            
+    
     return ldtensor_desc, ldtensor_impl
 
 

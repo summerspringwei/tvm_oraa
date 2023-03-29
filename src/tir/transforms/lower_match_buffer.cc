@@ -135,24 +135,37 @@ class MatchBufferLower : public StmtExprMutator {
   }
 
   Stmt VisitStmt_(const EvaluateNode* op) final {
-    VLOG(2) << GetRef<Evaluate>(op);
     auto call = (op->value).as<CallNode>();
-    if(call){
-      VLOG(2) << GetRef<Call>(call);
-      if(call->op.same_as(builtin::oraa_slice_tensor())){
-        int n_dim = Downcast<Integer>(call->args[0])->value;
-        int c_dim = Downcast<Integer>(call->args[1])->value;
-        int h_dim = Downcast<Integer>(call->args[2])->value;
-        int w_dim = Downcast<Integer>(call->args[3])->value;
-        VLOG(2) << n_dim << " " << c_dim << " " << h_dim << " " << w_dim;
-        auto call_access_ptr = (call->args[5]).as<CallNode>();
-        VLOG(2) << GetRef<Call>(call_access_ptr);
-        if(call_access_ptr){
-          if(call_access_ptr->op.same_as(builtin::tvm_access_ptr())){
-            Array<PrimExpr> acc_args = call_access_ptr->args;
-            Var buff_data = Downcast<Var>(acc_args[1]);
-            VLOG(2) << buff_data;
-          }
+    // Substitute the Var in oraa_slice_tensor op with start indices
+    if(call && call->op.same_as(builtin::oraa_slice_tensor())){
+      auto src_buff_data = Downcast<Var>(call->args[1]);
+      auto s0 = Downcast<Var>(call->args[3]);
+      auto s1 = Downcast<Var>(call->args[4]);
+      auto s2 = Downcast<Var>(call->args[5]);
+      auto s3 = Downcast<Var>(call->args[6]);
+      int n_dim = Downcast<Integer>(call->args[7])->value;
+      int c_dim = Downcast<Integer>(call->args[8])->value;
+      int h_dim = Downcast<Integer>(call->args[9])->value;
+      int w_dim = Downcast<Integer>(call->args[10])->value;
+      // Get the corresponding src buffer's region
+      for(auto it = match_buffers_.begin(); it != match_buffers_.end(); ++it) {
+        auto buff = Downcast<Buffer>((*it).first);
+        if((buff.as<BufferNode>()->data).as<VarNode>() == src_buff_data.as<VarNode>()){
+          Array<Range> region = ((*it).second.as<BufferRegionNode>())->region;
+          CHECK(region.size()==4) << "Only support buffer region size 4";
+          Bind(s0, region[0].as<RangeNode>()->min);
+          Bind(s1, region[1].as<RangeNode>()->min);
+          Bind(s2, region[2].as<RangeNode>()->min);
+          Bind(s3, region[3].as<RangeNode>()->min);
+          Array<PrimExpr> new_args {call->args[0], call->args[1], call->args[2], 
+            region[0].as<RangeNode>()->min, region[1].as<RangeNode>()->min,
+            region[2].as<RangeNode>()->min, region[3].as<RangeNode>()->min,
+            n_dim, c_dim, h_dim, w_dim};
+          VLOG(2) << "Set oraa_slice_tensor start indices: " << region;
+          auto n = CopyOnWrite(op);
+          n->value = std::move(tir::Call(call->dtype, call->op, new_args));
+          Stmt stmt = StmtExprMutator::VisitStmt_(n.get());
+          return stmt;
         }
       }
     }
