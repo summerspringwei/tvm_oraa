@@ -241,10 +241,18 @@ def UnrollLoop():
     """
     return _ffi_api.UnrollLoop()  # type: ignore
 
+
 def UnrollCthread():
     """Unroll thread loop, set thread_binding var to its constant value
+
+    This pass unroll all thread loops and replace them with the constant value
+
+    Returns
+    -------
+    fpass : tvm.transform.Pass
+        The result pass
     """
-    return _ffi_api.UnrollCthread() # type: ignore
+    return _ffi_api.UnrollCthread()  # type: ignore
 
 
 def ReduceBranchingThroughOvercompute():
