@@ -33,7 +33,7 @@ def workload():
 
 def test_meta_schedule_relay_integration_oraa_pixel_shuffle(input_shape: list):
     """Test using meta scheduler to search a schedule for relay module
-    
+
     Parameters:
     ----------
     input_shape: list of int
@@ -44,9 +44,7 @@ def test_meta_schedule_relay_integration_oraa_pixel_shuffle(input_shape: list):
     N, C, H, W = input_shape
     output_shape = [N, C // 4, H * 2, W * 2]
     mod = IRModule({"main": relay.Function([a], b)})
-    extracted_tasks = ms.relay_integration.extract_tasks(mod,
-                                                         target="llvm",
-                                                         params={})
+    extracted_tasks = ms.relay_integration.extract_tasks(mod, target="llvm", params={})
     for task in extracted_tasks:
         print(task.mod)
         print(task.dispatched)
@@ -61,32 +59,23 @@ def test_meta_schedule_relay_integration_oraa_pixel_shuffle(input_shape: list):
             max_trials_global=32,
             num_trials_per_iter=16,
         )
-        sch = ms.tir_integration.compile_tir(database, oraa_pixel_shuffle_tir,
-                                             target)
+        sch = ms.tir_integration.compile_tir(database, oraa_pixel_shuffle_tir, target)
         if sch is None:
             print("No valid schedule found!")
         else:
             sch.mod.show()
             sch.trace.show()
-            input_placeholder = te.placeholder(input_shape,
-                                               dtype='int8',
-                                               name='input_tvm')
-            output_placeholder = te.placeholder(output_shape,
-                                                dtype='int8',
-                                                name='output_tvm')
-            func = tvm.build(sch.mod, [input_placeholder, output_placeholder],
-                             target=target)
+            input_placeholder = te.placeholder(input_shape, dtype="int8", name="input_tvm")
+            output_placeholder = te.placeholder(output_shape, dtype="int8", name="output_tvm")
+            func = tvm.build(sch.mod, [input_placeholder, output_placeholder], target=target)
 
-            input_np = np.array(np.random.randn(*input_shape) * 128,
-                                dtype=np.byte)
+            input_np = np.array(np.random.randn(*input_shape) * 128, dtype=np.byte)
             output_np = np.array(np.zeros(output_shape), dtype=np.byte)
             input_tvm = tvm.nd.array(input_np, device=tvm.cuda(0))
             output_tvm = tvm.nd.array(output_np, device=tvm.cuda(0))
             func(input_tvm, output_tvm)
-            output_torch = torch.pixel_shuffle(
-                torch.tensor(input_np, dtype=torch.int8), 2)
-            np.testing.assert_allclose(output_tvm.numpy(),
-                                       output_torch.numpy())
+            output_torch = torch.pixel_shuffle(torch.tensor(input_np, dtype=torch.int8), 2)
+            np.testing.assert_allclose(output_tvm.numpy(), output_torch.numpy())
 
 
 def test_tensorize_oraa_pixel_shuffle(input_shape: list):
@@ -108,12 +97,33 @@ def test_tensorize_oraa_pixel_shuffle(input_shape: list):
 
     sch.tensorize(ni, oraa_cuda.ORAA_PIXEL_SHUFFLE_N2C8H4W4_INTRIN)
 
-    print(sch.mod.script())
+    # print(sch.mod.script())
+
+
+def test_tensorize_oraa_pixel_unshuffle(input_shape: list):
+    """Test tensorize of pixel unshuffle computation"""
+    input_tensor = te.placeholder(input_shape, dtype="int8", name="input_name")
+    output_tensor = pixel_shuffle_cuda.pixel_unshuffle_nchw(input_tensor, (2, 2))
+    output_tensor = pixel_shuffle_cuda.pixel_unshuffle_nchw(input_tensor, [2, 2])
+    func = te.create_prim_func([input_tensor, output_tensor])
+    ir_module_from_te = IRModule({"main": func})
+
+    sch = tir.Schedule(ir_module_from_te)
+    block_pixel_unshuffle = sch.get_block("PixelUnshuffle")
+    (n, c, h, w) = sch.get_loops(block_pixel_unshuffle)
+    no, ni = sch.split(n, factors=[None, 2])
+    co, ci = sch.split(c, factors=[None, 32])
+    ho, hi = sch.split(h, factors=[None, 2])
+    wo, wi = sch.split(w, factors=[None, 2])
+    sch.reorder(no, co, ho, wo, ni, ci, hi, wi)
+
+    sch.tensorize(ni, oraa_cuda.ORAA_PIXEL_UNSHUFFLE_N2C8H4W4_INTRIN)
+
+    # print(sch.mod.script())
 
 
 def pointwise_conv2d_nchw(Input, Filter, out_dtype="int8"):
-    batch, in_channel, in_height, in_width = utils.get_const_tuple(
-        Input.shape)
+    batch, in_channel, in_height, in_width = utils.get_const_tuple(Input.shape)
     out_channel, _, k_height, k_width = utils.get_const_tuple(Filter.shape)
     out_height = in_height
     out_width = in_width
@@ -121,16 +131,22 @@ def pointwise_conv2d_nchw(Input, Filter, out_dtype="int8"):
     out_width = in_width
     # N OC H W IC (KH KW)
     ic = te.reduce_axis((0, in_channel), name="ic")
-    Output = te.compute((batch, out_channel, out_height, out_width),lambda b, c, h, w:
-        te.sum(Input[b, c, h, w] * Filter[c, ic, 0, 0], axis=ic), name="PointwiseConv2dNCHW")
+    Output = te.compute(
+        (batch, out_channel, out_height, out_width),
+        lambda b, c, h, w: te.sum(Input[b, c, h, w] * Filter[c, ic, 0, 0], axis=ic),
+        name="PointwiseConv2dNCHW",
+    )
     return Output
+
 
 def test_tensorize_oraa_pointwise_conv2d(input_shape: list):
     input_tensor = te.placeholder(input_shape, dtype="int8", name="input_name")
-    weight_tensor = te.placeholder(shape=(input_shape[1],input_shape[1], 1, 1),dtype="int8", name="weight_name")
+    weight_tensor = te.placeholder(
+        shape=(input_shape[1], input_shape[1], 1, 1), dtype="int8", name="weight_name"
+    )
     output_tensor = pointwise_conv2d_nchw(input_tensor, weight_tensor)
     func = te.create_prim_func([input_tensor, weight_tensor, output_tensor])
-    print(func)
+    # print(func)
     # official_out = topi.nn.conv2d_nchw(Input=input_tensor,Filter=weight_tensor,stride=1,padding=0,dilation=1,
     #                                     out_dtype="int8")
     # official_func = te.create_prim_func([input_tensor, weight_tensor, official_out])
@@ -146,7 +162,37 @@ def test_tensorize_oraa_pointwise_conv2d(input_shape: list):
     wo, wi = sch.split(w, factors=[None, 8])
     sch.reorder(no, co, ho, wo, ni, ci, hi, wi, ic)
     sch.tensorize(ni, oraa_cuda.ORAA_PWC_N2C8H2W8_INTRIN)
-    print(sch.mod.script())
+    # print(sch.mod.script())
+
+
+def test_tensorize_oraa_add4(input_shape: list):
+    a = te.placeholder(input_shape, dtype="int8", name="a")
+    b = te.placeholder(input_shape, dtype="int8", name="b")
+    c = te.placeholder(input_shape, dtype="int8", name="c")
+    d = te.placeholder(input_shape, dtype="int8", name="d")
+    batch, channel, height, width = utils.get_const_tuple(a.shape)
+    out = te.compute(
+        (batch, channel, height, width),
+        lambda vn, vc, vh, vw: a[vn, vc, vh, vw]
+        + b[vn, vc, vh, vw]
+        + c[vn, vc, vh, vw]
+        + d[vn, vc, vh, vw],
+        name="Add4NCHW",
+    )
+    func = te.create_prim_func([a, b, c, d, out])
+    # print(func)
+    ir_module_from_te = IRModule({"main": func})
+    sch = tir.Schedule(ir_module_from_te)
+    block_add4 = sch.get_block("Add4NCHW")
+    plist = sch.get_loops(block_add4)
+    (n, oc, h, w) = plist
+    no, ni = sch.split(n, factors=[None, 2])
+    co, ci = sch.split(oc, factors=[None, 8])
+    ho, hi = sch.split(h, factors=[None, 4])
+    wo, wi = sch.split(w, factors=[None, 4])
+    sch.reorder(no, co, ho, wo, ni, ci, hi, wi)
+    sch.tensorize(ni, oraa_cuda.ORAA_ADD4_N2C8H4W4_INTRIN)
+    # print(sch.mod.script())
 
 
 if __name__ == "__main__":
@@ -154,5 +200,9 @@ if __name__ == "__main__":
     # test_pixel_shuffle((1, 64, 28, 28))
     # test_pixel_shuffle((1, 4, 8, 8))
     # test_meta_schedule_relay_integration_oraa_pixel_shuffle((1, 4, 8, 8))
-    # test_tensorize_oraa_pixel_shuffle((2, 16, 8, 8))
+    # operator tensorize test
+    test_tensorize_oraa_pixel_shuffle((4, 16, 16, 8))
+    test_tensorize_oraa_pixel_unshuffle((4, 8, 8, 8))
     test_tensorize_oraa_pointwise_conv2d((4, 8, 2, 8))
+    test_tensorize_oraa_add4((2, 8, 4, 4))
+    print("Success")
