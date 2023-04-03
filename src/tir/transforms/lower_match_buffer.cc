@@ -173,7 +173,7 @@ class MatchBufferLower : public StmtExprMutator {
     Stmt stmt = StmtExprMutator::VisitStmt_(op);
     return stmt;
   }
-
+	
   BufferRegion VisitBufferRegion(const BufferRegion& buffer_region) {
     const Buffer& buffer = buffer_region->buffer;
     auto it = match_buffers_.find(buffer);

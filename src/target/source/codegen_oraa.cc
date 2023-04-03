@@ -104,6 +104,46 @@ void CodeGenORAA::AddFunction(const PrimFunc& f) {
   this->EndScope(func_scope);
 }
 
+void CodeGenORAA::PrintExpr(const PrimExpr& n, std::ostream& os) {  // NOLINT(*)
+  if (print_ssa_form_) {
+    std::ostringstream temp;
+    VisitExpr(n, temp);
+    os << SSAGetID(temp.str(), n.dtype());
+  } else {
+    VisitExpr(n, os);
+  }
+}
+
+void CodeGenORAA::PrintSSAAssign(const std::string& target, const std::string& src, DataType t){
+
+}
+
+void CodeGenORAA::PrintFinalReturn(){
+
+}
+std::string CodeGenORAA::Finish(){
+  return "";
+}
+
+void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os){
+  op->op.same_as(builtin::oraa_slice_tensor());
+  ICHECK_EQ(op->args.size(), 12U);
+  os << "api.slice(";
+  this->PrintExpr(op->args[0], os);
+  os << ",";
+  this->PrintExpr(op->args[1], os);
+  os << ",";
+  for(int i=0; i<4; ++i){
+    this->PrintExpr(op->args[3+i]);
+    os << ":";
+    this->PrintExpr(op->args[3+4+i]);
+    if(i<3){
+      os << ",";
+    }
+  }
+  os << ")";
+}
+
 
 }  // namespace codegen
 }  // namespace tvm
