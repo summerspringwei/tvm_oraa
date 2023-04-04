@@ -18,6 +18,12 @@ class ORAAModuleNode : public runtime::ModuleNode {
   }
   const char* type_key() const final { return "oraa"; }
   PackedFunc GetFunction(const std::string& name, const ObjectPtr<Object>& sptr_to_self);
+  std::string GetSource(const std::string& format) final {
+    if (cuda_source_.length() != 0) {
+      return cuda_source_;
+    }
+    return "oraa_module.cc: Source code empty!";
+  }
  private:
   // the binary data
   std::string data_;

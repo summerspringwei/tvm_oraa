@@ -64,6 +64,20 @@ std::string CodeGenSourceBase::AllocVarID(const tir::VarNode* v) {
 
 std::string CodeGenSourceBase::GetVarID(const tir::VarNode* v) const {
   auto it = var_idmap_.find(v);
+  // TODO(Chunwei Xia) For now we hack the blockIdx and threadIdx
+  if("blockIdx.x" == v->name_hint){
+    return "blockIdx.x";
+  } else if("threadIdx.x" == v->name_hint){
+    return "threadIdx.x";
+  } else if("blockIdx.y" == v->name_hint){
+    return "blockIdx.y";
+  } else if("threadIdx.y" == v->name_hint){
+    return "threadIdx.y";
+  } else if("blockIdx.z" == v->name_hint){
+    return "blockIdx.z";
+  } else if("threadIdx.z" == v->name_hint){
+    return "threadIdx.z";
+  }
   ICHECK(it != var_idmap_.end()) << "Find undefined Variable " << v->name_hint;
   return it->second;
 }

@@ -51,6 +51,8 @@ public:
    * \return The code.
    */
   std::string Finish();
+  // Print reference to a buffer as type t in index.
+  virtual std::string GetBufferRef(DataType t, const BufferNode* buffer, PrimExpr index);
   /*!
    * \brief Print the Stmt n to CodeGenC->stream
    * \param n The statement to be printed.
@@ -91,49 +93,49 @@ public:
   // override
   void PrintSSAAssign(const std::string& target, const std::string& src, DataType t) final;
   // expression
-  // void VisitExpr_(const VarNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const LoadNode* op, std::ostream& os);        // NOLINT(*)
-  // void VisitExpr_(const BufferLoadNode* op, std::ostream& os);  // NOLINT(*)
-  // void VisitExpr_(const LetNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const VarNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const LoadNode* op, std::ostream& os);        // NOLINT(*)
+  void VisitExpr_(const BufferLoadNode* op, std::ostream& os);  // NOLINT(*)
+  void VisitExpr_(const LetNode* op, std::ostream& os);         // NOLINT(*)
   void VisitExpr_(const CallNode* op, std::ostream& os);        // NOLINT(*)
-  // void VisitExpr_(const AddNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const SubNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const MulNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const DivNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const ModNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const MinNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const MaxNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const EQNode* op, std::ostream& os);          // NOLINT(*)
-  // void VisitExpr_(const NENode* op, std::ostream& os);          // NOLINT(*)
-  // void VisitExpr_(const LTNode* op, std::ostream& os);          // NOLINT(*)
-  // void VisitExpr_(const LENode* op, std::ostream& os);          // NOLINT(*)
-  // void VisitExpr_(const GTNode* op, std::ostream& os);          // NOLINT(*)
-  // void VisitExpr_(const GENode* op, std::ostream& os);          // NOLINT(*)
-  // void VisitExpr_(const AndNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const OrNode* op, std::ostream& os);          // NOLINT(*)
-  // void VisitExpr_(const CastNode* op, std::ostream& os);        // NOLINT(*)
-  // void VisitExpr_(const NotNode* op, std::ostream& os);         // NOLINT(*)
-  // void VisitExpr_(const SelectNode* op, std::ostream& os);      // NOLINT(*)
-  // void VisitExpr_(const RampNode* op, std::ostream& os);        // NOLINT(*)
-  // void VisitExpr_(const ShuffleNode* op, std::ostream& os);     // NOLINT(*)
-  // void VisitExpr_(const BroadcastNode* op, std::ostream& os);   // NOLINT(*)
-  // void VisitExpr_(const IntImmNode* op, std::ostream& os);      // NOLINT(*)
-  // void VisitExpr_(const FloatImmNode* op, std::ostream& os);    // NOLINT(*)
-  // void VisitExpr_(const StringImmNode* op, std::ostream& os);   // NOLINT(*)
+  void VisitExpr_(const AddNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const SubNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const MulNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const DivNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const ModNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const MinNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const MaxNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const EQNode* op, std::ostream& os);          // NOLINT(*)
+  void VisitExpr_(const NENode* op, std::ostream& os);          // NOLINT(*)
+  void VisitExpr_(const LTNode* op, std::ostream& os);          // NOLINT(*)
+  void VisitExpr_(const LENode* op, std::ostream& os);          // NOLINT(*)
+  void VisitExpr_(const GTNode* op, std::ostream& os);          // NOLINT(*)
+  void VisitExpr_(const GENode* op, std::ostream& os);          // NOLINT(*)
+  void VisitExpr_(const AndNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const OrNode* op, std::ostream& os);          // NOLINT(*)
+  void VisitExpr_(const CastNode* op, std::ostream& os);        // NOLINT(*)
+  void VisitExpr_(const NotNode* op, std::ostream& os);         // NOLINT(*)
+  void VisitExpr_(const SelectNode* op, std::ostream& os);      // NOLINT(*)
+  void VisitExpr_(const RampNode* op, std::ostream& os);        // NOLINT(*)
+  void VisitExpr_(const ShuffleNode* op, std::ostream& os);     // NOLINT(*)
+  void VisitExpr_(const BroadcastNode* op, std::ostream& os);   // NOLINT(*)
+  void VisitExpr_(const IntImmNode* op, std::ostream& os);      // NOLINT(*)
+  void VisitExpr_(const FloatImmNode* op, std::ostream& os);    // NOLINT(*)
+  void VisitExpr_(const StringImmNode* op, std::ostream& os);   // NOLINT(*)
   // statment
-  // void VisitStmt_(const LetStmtNode* op);
-  // void VisitStmt_(const StoreNode* op);
-  // void VisitStmt_(const BufferStoreNode* op);
-  // void VisitStmt_(const ForNode* op);
-  // void VisitStmt_(const WhileNode* op);
-  // void VisitStmt_(const IfThenElseNode* op);
-  // void VisitStmt_(const AllocateNode* op);
-  // void VisitStmt_(const AttrStmtNode* op);
-  // void VisitStmt_(const AssertStmtNode* op);
-  // void VisitStmt_(const EvaluateNode* op);
-  // void VisitStmt_(const SeqStmtNode* op);
-  // void VisitStmt_(const AllocateConstNode* op);
-  // void VisitStmt_(const DeclBufferNode* op);
+  void VisitStmt_(const LetStmtNode* op);
+  void VisitStmt_(const StoreNode* op);
+  void VisitStmt_(const BufferStoreNode* op);
+  void VisitStmt_(const ForNode* op);
+  void VisitStmt_(const WhileNode* op);
+  void VisitStmt_(const IfThenElseNode* op);
+  void VisitStmt_(const AllocateNode* op);
+  void VisitStmt_(const AttrStmtNode* op);
+  void VisitStmt_(const AssertStmtNode* op);
+  void VisitStmt_(const EvaluateNode* op);
+  void VisitStmt_(const SeqStmtNode* op);
+  void VisitStmt_(const AllocateConstNode* op);
+  void VisitStmt_(const DeclBufferNode* op);
   /*!
    * \brief Print expr representing the thread tag
    * \param IterVar iv The thread index to be binded;
@@ -143,6 +145,14 @@ public:
   void PrintStorageSync(const CallNode* op);                           // NOLINT(*)
   /*! \brief reserves common Python keywords */
   void ReserveKeywordsAsUnique();
+  // Get a cast type from to
+  virtual std::string CastFromTo(std::string value, DataType from, DataType target);
+  /*!
+   * \brief Register the data type of buf_var
+   * \param buf_var The buffer variable.
+   * \param t The type to be checked.
+   */
+  void RegisterHandleType(const VarNode* buf_var, DataType t);
 
 private:
   /*! \brief whether to print in SSA form */
@@ -155,6 +165,10 @@ private:
   std::unordered_map<Var, const LetNode*, ObjectPtrHash, ObjectPtrEqual> let_binding_;
   /*! \brief Map of parameter to buffer */
   std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> var_buf_map_;
+  /*! \brief the storage scope of allocation */
+  std::unordered_map<const VarNode*, std::string> alloc_storage_scope_;
+  /*! \brief the data type of allocated buffers */
+  std::unordered_map<const VarNode*, DataType> handle_data_type_;
 };
 
 

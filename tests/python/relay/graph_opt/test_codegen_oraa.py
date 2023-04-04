@@ -134,8 +134,8 @@ def test_tensorize_oraa_relu(input_shape):
     print("*"*100)
     print(sch.mod)
     print("*"*100)
-    # target = Target("oraa")
-    target = 'cuda'
+    target = Target("oraa")
+    # target = 'cuda'
     func = tvm.build(sch.mod, [a, b],
                              target=target)
     print(func)
