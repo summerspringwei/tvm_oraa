@@ -464,6 +464,50 @@ def end_profile_intrinsic(id):
     return call_intrin("handle", "tir.end_profile_intrinsic", id)
 
 
+# def oraa_slice_tensor(dst, src, dtype='int8'):
+#     """Slice tensor intrinsic.
+#     Parameters
+#     ----------
+#     dst : Var
+#         The name of dst.
+#     src : BufferRegion
+#         The region of the source buffer
+#     dtype : Str
+#         The data type of the src
+#     Returns
+#     -------
+#     call : PrimExpr
+#         The call expression.
+#     """
+#     return call_intrin("handle", "tir.oraa_slice_tensor", dst, src, dtype)
+
+
+def oraa_slice_tensor(n, c, h, w, dst, src, src_offset, src_stride_1, src_stride_2, src_stride_3, dtype='int8'):
+    """Load buffer from global memory to shared memory.
+    Parameters
+    ----------
+    n : IntImm
+        The n dimension of dst slice.
+    c : IntImm
+        The c dimension of dst slice.
+    h : IntImm
+    w : IntImm
+    dst : Var
+    src : Var
+    src_offset : Expr
+    src_stride_1 : Var
+
+    dtype : Str
+        The data type of the src
+    Returns
+    -------
+    call : PrimExpr
+        The call expression.
+    """
+    return call_intrin("handle", "tir.oraa_slice_tensor", n, c, h, w, dst, src, src_offset, src_stride_1, src_stride_2, src_stride_3, dtype)
+
+
+
 def tvm_tuple(*value):
     """Create a tuple structure in value field of AttrStmt
 

@@ -45,6 +45,7 @@ class MatchBufferLower : public StmtExprMutator {
  private:
   Stmt VisitStmt_(const BlockNode* op) final {
     for (const MatchBufferRegion& match_buffer : op->match_buffers) {
+      VLOG(2) << PrettyPrint(match_buffer) << std::endl;
       CheckAndUpdateVarMap(match_buffer);
     }
 
@@ -96,6 +97,7 @@ class MatchBufferLower : public StmtExprMutator {
 
       auto n = CopyOnWrite(op);
       n->indices = ConvertIndices(MatchBufferRegion(buffer, source), op->indices);
+      VLOG(2) << "Rewrite " << op->indices << " to " << n->indices;
       n->buffer = source->buffer;
       return Stmt(n);
     }
@@ -113,6 +115,7 @@ class MatchBufferLower : public StmtExprMutator {
       const Buffer& buffer = (*it).first;
       const BufferRegion& source = (*it).second;
       Array<PrimExpr> indices = ConvertIndices(MatchBufferRegion(buffer, source), op->indices);
+      VLOG(2) << "Rewrite " << op->indices << " to " << indices;
       return BufferLoad(source->buffer, indices);
     }
   }
@@ -131,6 +134,46 @@ class MatchBufferLower : public StmtExprMutator {
     return stmt;
   }
 
+  Stmt VisitStmt_(const EvaluateNode* op) final {
+    auto call = (op->value).as<CallNode>();
+    // Substitute the Var in oraa_slice_tensor op with start indices
+    if(call && call->op.same_as(builtin::oraa_slice_tensor())){
+      auto src_buff_data = Downcast<Var>(call->args[1]);
+      auto s0 = Downcast<Var>(call->args[3]);
+      auto s1 = Downcast<Var>(call->args[4]);
+      auto s2 = Downcast<Var>(call->args[5]);
+      auto s3 = Downcast<Var>(call->args[6]);
+      int n_dim = Downcast<Integer>(call->args[7])->value;
+      int c_dim = Downcast<Integer>(call->args[8])->value;
+      int h_dim = Downcast<Integer>(call->args[9])->value;
+      int w_dim = Downcast<Integer>(call->args[10])->value;
+      // Get the corresponding src buffer's region
+      for(auto it = match_buffers_.begin(); it != match_buffers_.end(); ++it) {
+        auto buff = Downcast<Buffer>((*it).first);
+        if((buff.as<BufferNode>()->data).as<VarNode>() == src_buff_data.as<VarNode>()){
+          Array<Range> region = ((*it).second.as<BufferRegionNode>())->region;
+          CHECK(region.size()==4) << "Only support buffer region size 4";
+          Bind(s0, region[0].as<RangeNode>()->min);
+          Bind(s1, region[1].as<RangeNode>()->min);
+          Bind(s2, region[2].as<RangeNode>()->min);
+          Bind(s3, region[3].as<RangeNode>()->min);
+          Array<PrimExpr> new_args {call->args[0], call->args[1], call->args[2], 
+            region[0].as<RangeNode>()->min, region[1].as<RangeNode>()->min,
+            region[2].as<RangeNode>()->min, region[3].as<RangeNode>()->min,
+            n_dim, c_dim, h_dim, w_dim};
+          VLOG(2) << "Set oraa_slice_tensor start indices: " << region;
+          auto n = CopyOnWrite(op);
+          n->value = std::move(tir::Call(call->dtype, call->op, new_args));
+          Stmt stmt = StmtExprMutator::VisitStmt_(n.get());
+          return stmt;
+        }
+      }
+    }
+    
+    Stmt stmt = StmtExprMutator::VisitStmt_(op);
+    return stmt;
+  }
+	
   BufferRegion VisitBufferRegion(const BufferRegion& buffer_region) {
     const Buffer& buffer = buffer_region->buffer;
     auto it = match_buffers_.find(buffer);
@@ -149,7 +192,7 @@ class MatchBufferLower : public StmtExprMutator {
     const Buffer& buffer = match_buffer->buffer;
     const BufferRegion& source = VisitBufferRegion(match_buffer->source);
     const Buffer& source_buffer = source->buffer;
-
+    VLOG(2) << PrettyPrint(source);
     // Step.1.1. Check scope & dtype
     ICHECK_EQ(buffer.scope(), source_buffer.scope())
         << "MatchBuffer " << buffer << " scope mismatch:" << buffer.scope() << "vs."
@@ -186,6 +229,8 @@ class MatchBufferLower : public StmtExprMutator {
       }
 
       Array<PrimExpr> buffer_start_indices = source_buffer->ElemOffset(indices);
+      VLOG(2) << PrettyPrint(buffer_start_indices);
+      VLOG(2) << PrettyPrint(buffer) << " " << PrettyPrint(buffer->elem_offset);
       if (buffer_start_indices.size() == 1) {
         Bind(buffer->elem_offset, buffer_start_indices[0], buffer->name + ".elem_offset");
         CHECK(analyzer_.CanProve(truncmod(buffer->elem_offset, buffer->offset_factor) == 0))
@@ -237,12 +282,15 @@ class MatchBufferLower : public StmtExprMutator {
       Var v = Downcast<Var>(arg);
       auto it = var_map_.find(v);
       if (it == var_map_.end()) {
+        VLOG(2) <<"Bind " << v << " " << value;
         var_map_.Set(v, value);
         analyzer_.Bind(v, value);
       } else {
+        VLOG(2) <<"AssertBinding " << (*it).second << " " << value;
         AssertBinding((*it).second, value, arg_name);
       }
     } else {
+      VLOG(2) <<"AssertBinding " << arg << " " << value;
       AssertBinding(arg, value, arg_name);
     }
   }

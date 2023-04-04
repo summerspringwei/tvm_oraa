@@ -48,7 +48,7 @@ from tvm.testing.tir import mma_schedule
 M = 4096
 N = 4096
 K = 4096
-measure_perf = False
+measure_perf = True
 gflops = (N * M * K) * 2 / 1e9
 
 
@@ -110,7 +110,7 @@ def run_test(
         mma_fill_intrin,
         mma_store_intrin,
     )
-
+    print(sch.mod)
     f = tvm.build(sch.mod["main"], target="cuda", name="dense")
 
     dev = tvm.device("cuda", 0)
@@ -187,154 +187,154 @@ def test_f16f16f32_m16n16k16():
     if measure_perf and timer:
         print("f16f16f32_m16n16k16: %f GFLOPS" % (gflops / (timer().mean)))
 
-    timer = run_test(
-        k_inner,
-        in_dtype,
-        out_dtype,
-        True,  # b_transposed
-        i_factors,
-        j_factors,
-        k_factors,
-        index_map,
-        index_map,
-        index_map,
-        LDMATRIX_16x16_A_INTRIN,
-        LDMATRIX_16x16_B_TRANS_INTRIN,
-        MMA_f16f16f32_TRANS_INTRIN,
-        MMA_fill_16x16_f32_INTRIN,
-        MMA_store_16x16_f32_global_INTRIN,
-    )
+    # timer = run_test(
+    #     k_inner,
+    #     in_dtype,
+    #     out_dtype,
+    #     True,  # b_transposed
+    #     i_factors,
+    #     j_factors,
+    #     k_factors,
+    #     index_map,
+    #     index_map,
+    #     index_map,
+    #     LDMATRIX_16x16_A_INTRIN,
+    #     LDMATRIX_16x16_B_TRANS_INTRIN,
+    #     MMA_f16f16f32_TRANS_INTRIN,
+    #     MMA_fill_16x16_f32_INTRIN,
+    #     MMA_store_16x16_f32_global_INTRIN,
+    # )
 
-    if measure_perf and timer:
-        print("f16f16f32_m16n16k16_trans: %f GFLOPS" % (gflops / (timer().mean)))
-
-
-@tvm.testing.requires_cuda_compute_version(8)
-def test_f16f16f16_m16n16k16():
-    def index_map(i, j):
-        return (
-            i // 16,
-            j // 16,
-            *shared_16x16_to_ldmatrix_32x8_layout(i % 16, j % 16),
-        )
-
-    k_inner = 16
-    in_dtype = "float16"
-    out_dtype = "float16"
-    i_factors, j_factors, k_factors = [16, 2, 1, 4, 2], [16, 2, 2, 1, 4], [128, 2, 1]
-
-    timer = run_test(
-        k_inner,
-        in_dtype,
-        out_dtype,
-        False,  # b_transposed
-        i_factors,
-        j_factors,
-        k_factors,
-        index_map,
-        index_map,
-        index_map,
-        LDMATRIX_16x16_A_INTRIN,
-        LDMATRIX_16x16_B_INTRIN,
-        MMA_f16f16f16_INTRIN,
-        MMA_fill_16x16_f16_INTRIN,
-        MMA_store_16x16_f16_global_INTRIN,
-    )
-
-    if measure_perf and timer:
-        print("f16f16f16_m16n16k16: %f GFLOPS" % (gflops / (timer().mean)))
-
-    timer = run_test(
-        k_inner,
-        in_dtype,
-        out_dtype,
-        True,  # b_transposed
-        i_factors,
-        j_factors,
-        k_factors,
-        index_map,
-        index_map,
-        index_map,
-        LDMATRIX_16x16_A_INTRIN,
-        LDMATRIX_16x16_B_TRANS_INTRIN,
-        MMA_f16f16f16_TRANS_INTRIN,
-        MMA_fill_16x16_f16_INTRIN,
-        MMA_store_16x16_f16_global_INTRIN,
-    )
-
-    if measure_perf and timer:
-        print("f16f16f16_m16n16k16_trans: %f GFLOPS" % (gflops / (timer().mean)))
+    # if measure_perf and timer:
+    #     print("f16f16f32_m16n16k16_trans: %f GFLOPS" % (gflops / (timer().mean)))
 
 
-@tvm.testing.requires_cuda_compute_version(8)
-def test_i8i8i32_m16n16k32():
-    def index_map_A(i, j):
-        return (
-            i // 16,
-            j // 32,
-            *shared_16x32_to_ldmatrix_32x16_layout(i % 16, j % 32),
-        )
+# @tvm.testing.requires_cuda_compute_version(8)
+# def test_f16f16f16_m16n16k16():
+#     def index_map(i, j):
+#         return (
+#             i // 16,
+#             j // 16,
+#             *shared_16x16_to_ldmatrix_32x8_layout(i % 16, j % 16),
+#         )
 
-    def index_map_B(i, j):
-        return (
-            i // 32,
-            j // 16,
-            *shared_32x16_to_ldmatrix_32x16_layout(i % 32, j % 16),
-        )
+#     k_inner = 16
+#     in_dtype = "float16"
+#     out_dtype = "float16"
+#     i_factors, j_factors, k_factors = [16, 2, 1, 4, 2], [16, 2, 2, 1, 4], [128, 2, 1]
 
-    def index_map_C(i, j):
-        return (
-            i // 16,
-            j // 16,
-            *shared_16x16_to_ldmatrix_32x8_layout(i % 16, j % 16),
-        )
+#     timer = run_test(
+#         k_inner,
+#         in_dtype,
+#         out_dtype,
+#         False,  # b_transposed
+#         i_factors,
+#         j_factors,
+#         k_factors,
+#         index_map,
+#         index_map,
+#         index_map,
+#         LDMATRIX_16x16_A_INTRIN,
+#         LDMATRIX_16x16_B_INTRIN,
+#         MMA_f16f16f16_INTRIN,
+#         MMA_fill_16x16_f16_INTRIN,
+#         MMA_store_16x16_f16_global_INTRIN,
+#     )
 
-    k_inner = 32
-    in_dtype = "int8"
-    out_dtype = "int32"
-    i_factors, j_factors, k_factors = [1, 32, 1, 4, 2], [8, 4, 4, 2, 1], [32, 2, 2]
+#     if measure_perf and timer:
+#         print("f16f16f16_m16n16k16: %f GFLOPS" % (gflops / (timer().mean)))
 
-    timer = run_test(
-        k_inner,
-        in_dtype,
-        out_dtype,
-        False,  # b_transposed
-        i_factors,
-        j_factors,
-        k_factors,
-        index_map_A,
-        index_map_B,
-        index_map_C,
-        LDMATRIX_16x32_A_INTRIN,
-        LDMATRIX_32x16_B_INTRIN,
-        MMA_i8i8i32_INTRIN,
-        MMA_fill_16x16_i32_INTRIN,
-        MMA_store_16x16_i32_global_INTRIN,
-    )
+#     timer = run_test(
+#         k_inner,
+#         in_dtype,
+#         out_dtype,
+#         True,  # b_transposed
+#         i_factors,
+#         j_factors,
+#         k_factors,
+#         index_map,
+#         index_map,
+#         index_map,
+#         LDMATRIX_16x16_A_INTRIN,
+#         LDMATRIX_16x16_B_TRANS_INTRIN,
+#         MMA_f16f16f16_TRANS_INTRIN,
+#         MMA_fill_16x16_f16_INTRIN,
+#         MMA_store_16x16_f16_global_INTRIN,
+#     )
 
-    if measure_perf and timer:
-        print("i8i8i32_m16n16k32: %f GOPS" % (gflops / (timer().mean)))
+#     if measure_perf and timer:
+#         print("f16f16f16_m16n16k16_trans: %f GFLOPS" % (gflops / (timer().mean)))
 
-    timer = run_test(
-        k_inner,
-        in_dtype,
-        out_dtype,
-        True,  # b_transposed
-        i_factors,
-        j_factors,
-        k_factors,
-        index_map_A,
-        index_map_A,
-        index_map_C,
-        LDMATRIX_16x32_A_INTRIN,
-        LDMATRIX_16x32_B_TRANS_INTRIN,
-        MMA_i8i8i32_TRANS_INTRIN,
-        MMA_fill_16x16_i32_INTRIN,
-        MMA_store_16x16_i32_global_INTRIN,
-    )
 
-    if measure_perf and timer:
-        print("i8i8i32_m16n16k32_trans: %f GOPS" % (gflops / (timer().mean)))
+# @tvm.testing.requires_cuda_compute_version(8)
+# def test_i8i8i32_m16n16k32():
+#     def index_map_A(i, j):
+#         return (
+#             i // 16,
+#             j // 32,
+#             *shared_16x32_to_ldmatrix_32x16_layout(i % 16, j % 32),
+#         )
+
+#     def index_map_B(i, j):
+#         return (
+#             i // 32,
+#             j // 16,
+#             *shared_32x16_to_ldmatrix_32x16_layout(i % 32, j % 16),
+#         )
+
+#     def index_map_C(i, j):
+#         return (
+#             i // 16,
+#             j // 16,
+#             *shared_16x16_to_ldmatrix_32x8_layout(i % 16, j % 16),
+#         )
+
+#     k_inner = 32
+#     in_dtype = "int8"
+#     out_dtype = "int32"
+#     i_factors, j_factors, k_factors = [1, 32, 1, 4, 2], [8, 4, 4, 2, 1], [32, 2, 2]
+
+#     timer = run_test(
+#         k_inner,
+#         in_dtype,
+#         out_dtype,
+#         False,  # b_transposed
+#         i_factors,
+#         j_factors,
+#         k_factors,
+#         index_map_A,
+#         index_map_B,
+#         index_map_C,
+#         LDMATRIX_16x32_A_INTRIN,
+#         LDMATRIX_32x16_B_INTRIN,
+#         MMA_i8i8i32_INTRIN,
+#         MMA_fill_16x16_i32_INTRIN,
+#         MMA_store_16x16_i32_global_INTRIN,
+#     )
+
+#     if measure_perf and timer:
+#         print("i8i8i32_m16n16k32: %f GOPS" % (gflops / (timer().mean)))
+
+#     timer = run_test(
+#         k_inner,
+#         in_dtype,
+#         out_dtype,
+#         True,  # b_transposed
+#         i_factors,
+#         j_factors,
+#         k_factors,
+#         index_map_A,
+#         index_map_A,
+#         index_map_C,
+#         LDMATRIX_16x32_A_INTRIN,
+#         LDMATRIX_16x32_B_TRANS_INTRIN,
+#         MMA_i8i8i32_TRANS_INTRIN,
+#         MMA_fill_16x16_i32_INTRIN,
+#         MMA_store_16x16_i32_global_INTRIN,
+#     )
+
+#     if measure_perf and timer:
+#         print("i8i8i32_m16n16k32_trans: %f GOPS" % (gflops / (timer().mean)))
 
 
 if __name__ == "__main__":
