@@ -178,7 +178,7 @@ std::string CodeGenORAA::CastFromTo(std::string value, DataType from, DataType t
 
 inline void PrintConst(const IntImmNode* op, std::ostream& os, CodeGenORAA* p) {  // NOLINT(*)
   std::ostringstream temp;
-  temp << op->value;
+  temp << std::to_string(op->value);
   p->MarkConst(temp.str());
   os << temp.str();
 }
@@ -203,19 +203,21 @@ inline void PrintConst(const FloatImmNode* op, std::ostream& os, CodeGenORAA* p)
 template <typename T>
 inline void PrintBinaryExpr(const T* op, const char* opstr,
                             std::ostream& os,  // NOLINT(*)
-                            CodeGenORAA* p) {
+                            CodeGenORAA* p) {                              
   if (op->dtype.lanes() == 1) {
+    std::string a = p->PrintExpr(op->a);
+    std::string b = p->PrintExpr(op->b);
     if (isalpha(opstr[0])) {
       os << opstr << '(';
-      p->PrintExpr(op->a, os);
+      os << a;
       os << ", ";
-      p->PrintExpr(op->b, os);
+      os << b;
       os << ')';
     } else {
       os << '(';
-      p->PrintExpr(op->a, os);
+      os << a;
       os << ' ' << opstr << ' ';
-      p->PrintExpr(op->b, os);
+      os << b;
       os << ')';
     }
   } else {
@@ -311,24 +313,24 @@ void CodeGenORAA::VisitExpr_(const NotNode* op, std::ostream& os) {  // NOLINT(*
 }
 
 void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os){
-  ICHECK_EQ(op->args.size(), 11U);
-    os << "api.slice(";
-    this->PrintExpr(op->args[0], os);
-    os << ",";
-    this->PrintExpr(op->args[1], os);
-    os << ",";
-    for(int i=0; i<4; ++i){
-      this->PrintExpr(op->args[3+i]);
-      os << ":";
-      this->PrintExpr(op->args[3+4+i]);
-      if(i<3){
-        os << ",";
-      }
-    }
-    os << ")";
-    std::stringstream ss;
-    ss << os.rdbuf();
-    VLOG(2) << ss.str();
+  // ICHECK_EQ(op->args.size(), 11U);
+  //   os << "api.slice(";
+  //   this->PrintExpr(op->args[0], os);
+  //   os << ",";
+  //   this->PrintExpr(op->args[1], os);
+  //   os << ",";
+  //   for(int i=0; i<4; ++i){
+  //     os << this->PrintExpr(op->args[3+i]);
+  //     os << ":";
+  //     os << this->PrintExpr(op->args[3+4+i]);
+  //     if(i<3){
+  //       os << ",";
+  //     }
+  //   }
+  //   os << ")";
+  //   std::stringstream ss;
+  //   ss << os.rdbuf();
+  //   VLOG(2) << ss.str();
   if(op->op.same_as(builtin::oraa_slice_tensor())){
     ICHECK_EQ(op->args.size(), 11U);
     // api.slice(shared_buf,global_buf,:,:,:,:)
@@ -338,16 +340,16 @@ void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os){
     this->PrintExpr(op->args[1], os);
     os << ",";
     for(int i=0; i<4; ++i){
-      this->PrintExpr(op->args[3+i]);
+      os << this->PrintExpr(op->args[3+i]);
       os << ":";
-      this->PrintExpr(op->args[3+4+i]);
+      os << this->PrintExpr(op->args[3+4+i]);
       if(i<3){
         os << ",";
       }
     }
     os << ")";
     std::stringstream ss;
-    
+    ss << os.rdbuf();
     VLOG(2) << ss.str();
   }
 }
@@ -533,7 +535,7 @@ void CodeGenORAA::VisitStmt_(const EvaluateNode* op) {
   std::string vid = this->PrintExpr(op->value);
   if (vid != "") {
     this->PrintIndent();
-    this->stream << vid << ";\n";
+    this->stream << vid << "\n";
   }
 }
 
