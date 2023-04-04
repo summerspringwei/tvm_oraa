@@ -47,9 +47,9 @@ def pixel_unshuffle_nchw(input_tensor, downscale_factor):
         (batch, out_channel, out_height, out_width),
         lambda n, c, h, w: input_tensor[
             n,
-            tir.truncmod(c, in_channel),
-            tir.truncdiv(tir.truncdiv(c, in_channel), downscale_factor) + (h * downscale_factor),
-            tir.truncmod(tir.truncdiv(c, in_channel), downscale_factor) + (w * downscale_factor),
+            tir.indexmod(c, in_channel),
+            tir.indexdiv(tir.indexdiv(c, in_channel), downscale_factor) + (h * downscale_factor),
+            tir.indexmod(tir.indexdiv(c, in_channel), downscale_factor) + (w * downscale_factor),
         ],
         name="PixelUnshuffle",
     )

@@ -96,9 +96,9 @@ def pixel_unshuffle_n2c8h4w4_desc(a: T.handle, b: T.handle) -> None:
                 vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
                 B[vn, vc, vh, vw] = A[
                     vn,
-                    tvm.tir.truncmod(vc, 8),
-                    tvm.tir.truncdiv(tvm.tir.truncdiv(vc, 8), 2) + (vh * 2),
-                    tvm.tir.truncmod(tvm.tir.truncdiv(vc, 8), 2) + (vw * 2),
+                    tvm.tir.indexmod(vc, 8),
+                    tvm.tir.indexdiv(tvm.tir.indexdiv(vc, 8), 2) + (vh * 2),
+                    tvm.tir.indexmod(tvm.tir.indexdiv(vc, 8), 2) + (vw * 2),
                 ]
 
 
