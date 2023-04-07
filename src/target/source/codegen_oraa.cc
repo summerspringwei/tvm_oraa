@@ -5,9 +5,9 @@
 #include <cctype>
 #include <iomanip>
 
-#include "../../printer/text_printer.h"
-#include "../../printer/meta_data.h"
 #include "../../arith/pattern_match.h"
+#include "../../printer/meta_data.h"
+#include "../../printer/text_printer.h"
 #include "codegen_params.h"
 
 namespace tvm {
@@ -15,7 +15,11 @@ namespace codegen {
 
 using namespace tir;
 
-void CodeGenORAA::Init() {}
+void CodeGenORAA::Init() {
+  decl_stream << "from dla2.client import get_remote_runtime\n";
+  decl_stream << "from dla2.core.flags import TensorFormat\n";
+  decl_stream << "api = get_remote_runtime()\n";
+}
 
 void CodeGenORAA::InitFuncState(const PrimFunc& f) {
   CodeGenSourceBase::ClearFuncState();
@@ -62,9 +66,7 @@ void CodeGenORAA::ReserveKeywordsAsUnique() {
   name_supply_->ReserveName("yield");
 }
 
-
 void CodeGenORAA::PrintFuncPrefix(std::ostream& os) { os << "def"; }
-
 
 void CodeGenORAA::AddFunction(const PrimFunc& f) {
   // clear previous generated state.
@@ -121,16 +123,14 @@ void CodeGenORAA::PrintExpr(const PrimExpr& n, std::ostream& os) {  // NOLINT(*)
   }
 }
 
-void CodeGenORAA::PrintSSAAssign(const std::string& target, const std::string& src, DataType t){
+void CodeGenORAA::PrintSSAAssign(const std::string& target, const std::string& src, DataType t) {}
 
+void CodeGenORAA::PrintFinalReturn() {
+  decl_stream << "buf = api.malloc(" << current_malloc_size_ << ")\n";
+  PrintIndent();
+  stream << "api.synchronize()\n";
 }
-
-void CodeGenORAA::PrintFinalReturn(){
-
-}
-std::string CodeGenORAA::Finish(){
-  return decl_stream.str() + stream.str();
-}
+std::string CodeGenORAA::Finish() { return decl_stream.str() + stream.str(); }
 
 void CodeGenORAA::PrintStorageScope(const std::string& scope, std::ostream& os) {  // NOLINT(*)
   // ICHECK_EQ(scope, "global");
@@ -199,11 +199,10 @@ inline void PrintConst(const FloatImmNode* op, std::ostream& os, CodeGenORAA* p)
   }
 }
 
-
 template <typename T>
 inline void PrintBinaryExpr(const T* op, const char* opstr,
                             std::ostream& os,  // NOLINT(*)
-                            CodeGenORAA* p) {                              
+                            CodeGenORAA* p) {
   if (op->dtype.lanes() == 1) {
     std::string a = p->PrintExpr(op->a);
     std::string b = p->PrintExpr(op->b);
@@ -224,7 +223,6 @@ inline void PrintBinaryExpr(const T* op, const char* opstr,
     LOG(FATAL) << "Vector load not implemented";
   }
 }
-
 
 void CodeGenORAA::VisitExpr_(const IntImmNode* op, std::ostream& os) {  // NOLINT(*)
   PrintConst(op, os, this);
@@ -312,38 +310,21 @@ void CodeGenORAA::VisitExpr_(const NotNode* op, std::ostream& os) {  // NOLINT(*
   PrintExpr(op->a, os);
 }
 
-void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os){
-  // ICHECK_EQ(op->args.size(), 11U);
-  //   os << "api.slice(";
-  //   this->PrintExpr(op->args[0], os);
-  //   os << ",";
-  //   this->PrintExpr(op->args[1], os);
-  //   os << ",";
-  //   for(int i=0; i<4; ++i){
-  //     os << this->PrintExpr(op->args[3+i]);
-  //     os << ":";
-  //     os << this->PrintExpr(op->args[3+4+i]);
-  //     if(i<3){
-  //       os << ",";
-  //     }
-  //   }
-  //   os << ")";
-  //   std::stringstream ss;
-  //   ss << os.rdbuf();
-  //   VLOG(2) << ss.str();
-  if(op->op.same_as(builtin::oraa_slice_tensor())){
+void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os) {
+  if (op->op.same_as(builtin::oraa_slice_tensor())) {
     ICHECK_EQ(op->args.size(), 11U);
     // api.slice(shared_buf,global_buf,:,:,:,:)
-    os << "api.slice(";
     this->PrintExpr(op->args[0], os);
-    os << ",";
+    os << " = api.slice_tensor(";
     this->PrintExpr(op->args[1], os);
     os << ",";
-    for(int i=0; i<4; ++i){
-      os << this->PrintExpr(op->args[3+i]);
-      os << ":";
-      os << this->PrintExpr(op->args[3+4+i]);
-      if(i<3){
+    for (int i = 0; i < 4; ++i) {
+      os << "slice(";
+      os << this->PrintExpr(op->args[3 + i]);
+      os << ",";
+      os << this->PrintExpr(op->args[3 + i]) << "+" << this->PrintExpr(op->args[3 + 4 + i]);
+      os << ")";
+      if (i < 3) {
         os << ",";
       }
     }
@@ -351,13 +332,60 @@ void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os){
     std::stringstream ss;
     ss << os.rdbuf();
     VLOG(2) << ss.str();
+  } else if (op->op.same_as(builtin::call_extern())) {
+    auto func_name = this->PrintExpr(op->args[0]);
+    if (func_name == "\"write_to_tensor\"") {
+      ICHECK_EQ(op->args.size(), 5U);
+      // @need structural?
+      os << "api.write_to_tensor(";
+      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << ",";
+      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << ")\n";
+    } else if (func_name == "\"read_from_tensor\"") {
+      ICHECK_EQ(op->args.size(), 5U);
+      // @need structural?
+      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << " = api.read_from_tensor(";
+      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << ")\n";
+    } else if (func_name == "\"relu\"") {
+      ICHECK_EQ(op->args.size(), 5U);
+      os << "api.relu";
+      os << "(";
+      // core_id;
+      os << "0";
+      os << ",";
+      // in
+      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << ",";
+      // out
+      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << ")\n";
+    } else if (func_name == "\"add4\"") {
+      ICHECK_EQ(op->args.size(), 11U);
+      os << "api.add";
+      os << "(";
+      // core_id;
+      os << "0";
+      os << ", in0=";
+      // in
+      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << ", in1=";
+      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << ", in2=";
+      os << this->PrintExpr(op->args[5]) << "+" << this->PrintExpr(op->args[6]);
+      os << ", in3=";
+      os << this->PrintExpr(op->args[7]) << "+" << this->PrintExpr(op->args[8]);
+      // out
+      os << ", out=";
+      os << this->PrintExpr(op->args[9]) << "+" << this->PrintExpr(op->args[10]);
+      os << ")\n";
+    }
   }
 }
 
-
-void CodeGenORAA::VisitStmt_(const AllocateConstNode* op) {
-  LOG(FATAL) << "To be implemented";
-}
+void CodeGenORAA::VisitStmt_(const AllocateConstNode* op) { LOG(FATAL) << "To be implemented"; }
 
 void CodeGenORAA::VisitStmt_(const DeclBufferNode* op) { this->PrintStmt(op->body); }
 
@@ -365,16 +393,20 @@ void CodeGenORAA::VisitExpr_(const LoadNode* op, std::ostream& os) {  // NOLINT(
   LOG(FATAL) << "Unexpected deprecated LoadNode.  Use BufferLoadNode instead.";
 }
 
-
 void CodeGenORAA::VisitExpr_(const BufferLoadNode* op, std::ostream& os) {  // NOLINT(*)
   ICHECK_EQ(op->indices.size(), 1) << "Load from non-flat memory not supported.";
 
-  // DataType value_dtype = op->dtype;
-  // PrimExpr index = op->indices[0];
-  // Var buffer_var = op->buffer->data;
-  // DataType element_dtype = op->buffer->dtype;
+  DataType value_dtype = op->dtype;
+  PrimExpr index = op->indices[0];
+  Var buffer_var = op->buffer->data;
+  DataType element_dtype = op->buffer->dtype;
+  // delcare type.
+  if (value_dtype.lanes() == element_dtype.lanes()) {
+    std::string ref = GetBufferRef(op->dtype, op->buffer.get(), index);
+    os << ref;
+  }
 
-  stream << "BufferLoadNotImplemented\n";
+  // stream << "BufferLoadNotImplemented\n";
 }
 
 void CodeGenORAA::VisitStmt_(const StoreNode* op) {
@@ -384,12 +416,18 @@ void CodeGenORAA::VisitStmt_(const StoreNode* op) {
 void CodeGenORAA::VisitStmt_(const BufferStoreNode* op) {
   ICHECK_EQ(op->indices.size(), 1) << "Store to non-flat memory not supported.";
 
-  // DataType value_dtype = op->value.dtype();
-  // DataType element_dtype = op->buffer->dtype;
-  // PrimExpr index_expr = op->indices[0];
-  // Var buffer_var = op->buffer->data;
+  DataType value_dtype = op->value.dtype();
+  DataType element_dtype = op->buffer->dtype;
+  PrimExpr index_expr = op->indices[0];
+  Var buffer_var = op->buffer->data;
+  if (value_dtype.lanes() == element_dtype.lanes()) {
+    std::string value = this->PrintExpr(op->value);
+    std::string ref = this->GetBufferRef(value_dtype, op->buffer.get(), index_expr);
+    this->PrintIndent();
+    stream << ref << " = " << value << "\n";
+  }
 
-  stream << "BufferStoreNotImplemented\n";
+  // stream << "BufferStoreNotImplemented\n";
 }
 
 void CodeGenORAA::VisitExpr_(const LetNode* op, std::ostream& os) {  // NOLINT(*)
@@ -405,10 +443,15 @@ void CodeGenORAA::VisitExpr_(const LetNode* op, std::ostream& os) {  // NOLINT(*
   os << PrintExpr(op->body);
 }
 
-
 void CodeGenORAA::VisitExpr_(const RampNode* op, std::ostream& os) {  // NOLINT(*)
-  LOG(FATAL) << "RampNode: To be implemented";
-  
+  ICHECK_EQ(op->base.dtype(), DataType::Int(32));
+  os << "[";
+  for (int i = 0; i < op->lanes; i++) {
+    os << "(" << PrintExpr(op->base) << ")"
+       << "+(" << PrintExpr(op->stride) << "*" << i << ")";
+    if (i != op->lanes - 1) os << ", ";
+  }
+  os << "]";
 }
 
 void CodeGenORAA::VisitExpr_(const ShuffleNode* op, std::ostream& os) {
@@ -428,9 +471,7 @@ void CodeGenORAA::VisitExpr_(const SelectNode* op, std::ostream& os) {  // NOLIN
   os << "\n";
 }
 
-void CodeGenORAA::VisitStmt_(const LetStmtNode* op) {
-  LOG(FATAL) << "LetStmt: to be implemented";
-}
+void CodeGenORAA::VisitStmt_(const LetStmtNode* op) { LOG(FATAL) << "LetStmt: to be implemented"; }
 
 void CodeGenORAA::VisitStmt_(const AllocateNode* op) {
   ICHECK(!is_zero(op->condition));
@@ -443,9 +484,11 @@ void CodeGenORAA::VisitStmt_(const AllocateNode* op) {
   auto scope = GetPtrStorageScope(op->buffer_var);
   alloc_storage_scope_[op->buffer_var.get()] = scope;
   PrintStorageScope(scope, stream);
-
-  PrintType(op->dtype, stream);
-  stream << ' ' << vid << '[' << constant_size << "];\n";
+  // relu_a_shared = api.alloc_tensor(0,16384,dtype="int8")
+  malloc_pair_[op] = std::make_pair(current_malloc_size_, constant_size);
+  current_malloc_size_ += constant_size;
+  stream << vid << " = api.declare_tensor(buf, " << malloc_pair_[op].first << ", "
+         << malloc_pair_[op].second << ", TensorFormat.NCHW)\n";
 
   RegisterHandleType(op->buffer_var.get(), op->dtype);
   this->PrintStmt(op->body);
@@ -459,7 +502,6 @@ void CodeGenORAA::VisitStmt_(const AttrStmtNode* op) {
   }
   this->PrintStmt(op->body);
 }
-
 
 void CodeGenORAA::VisitStmt_(const AssertStmtNode* op) {
   std::string cond = PrintExpr(op->condition);
@@ -482,7 +524,7 @@ void CodeGenORAA::VisitStmt_(const ForNode* op) {
   int for_scope = BeginScope();
   PrintStmt(op->body);
   this->EndScope(for_scope);
-  PrintIndent();
+  // PrintIndent();
 }
 
 void CodeGenORAA::VisitStmt_(const WhileNode* op) {
@@ -530,7 +572,7 @@ void CodeGenORAA::VisitStmt_(const EvaluateNode* op) {
     if (call->op.same_as(builtin::tvm_storage_sync())) {
       this->PrintStorageSync(call);
       return;
-    } 
+    }
   }
   std::string vid = this->PrintExpr(op->value);
   if (vid != "") {

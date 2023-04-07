@@ -66,196 +66,6 @@ def pixel_shuffle_n2c8h4w4_impl(a: T.handle, b: T.handle) -> None:
         )
 
 
-
-@T.prim_func
-def relu_n2c2h8w2_desc(a: T.handle, b: T.handle) -> None:
-    """
-  Int8 add description by shape (2, 2, 8, 2) with NCHW layout
-
-  Parameters
-  ----------
-  a: tvm.script.tir.handle
-    the input data pointer
-  b: tvm.script.tir.handle
-    the output data pointer
-  """
-    A = T.match_buffer(a, (2, 2, 8, 2), dtype='int8', scope="shared")
-    B = T.match_buffer(b, (2, 2, 8, 2), dtype='int8', scope="shared")
-    with T.block("root"):
-        T.reads(A[0:2, 0:2, 0:8, 0:2])
-        T.writes(B[0:2, 0:2, 0:8, 0:2])
-        for n, c, h, w in T.grid(2, 2, 8, 2):
-            with T.block("pixel_shuffel_basic_block"):
-                vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
-                B[vn, vc, vh, vw] = tvm.tir.max(A[vn, vc, vh, vw], T.int8(0)) 
-
-
-@T.prim_func
-def relu_n2c2h8w2_impl(a: T.handle, b: T.handle) -> None:
-    """
-    Int8 pixel shuffle implementation by shape (2, 2, 8, 2) with NCHW layout
-    Note: This tensorize implemetation is just a demonstration and not semantic equal!
-
-    Parameters
-    ----------
-    a: tvm.script.tir.handle
-      the input data pointer
-    b: tvm.script.tir.handle
-      the output data pointer
-    """
-    A = T.match_buffer(a, (2, 2, 8, 2), dtype='int8', scope="shared")
-    B = T.match_buffer(b, (2, 2, 8, 2), dtype='int8', scope="shared")
-    with T.block("root"):
-        T.reads(A[0:2, 0:2, 0:8, 0:2])
-        T.writes(B[0:2, 0:2, 0:8, 0:2])
-        T.evaluate(
-            T.call_extern(
-                "vec4add",
-                A.data,
-                B.elem_offset,
-                A.data,
-                A.elem_offset,
-                B.data,
-                B.elem_offset,
-                dtype="int8",
-            ))
-
-
-def get_ldtensor_intrin(shared_shape, dtype):
-    @T.prim_func
-    def ldtensor_desc(shared_handle: T.handle, global_handle: T.handle):
-        global_buff = T.match_buffer(
-            global_handle,
-            shared_shape,
-            dtype,
-            offset_factor=1,
-            scope="global",
-        )
-        shared_buff = T.match_buffer(
-            shared_handle,
-            shared_shape,
-            dtype,
-            offset_factor=1,
-            scope="shared"
-        )
-        n_dim, c_dim, h_dim, w_dim = shared_shape
-        with T.block("root"):
-            T.reads(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-            T.writes(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-
-            for n, c, h, w in T.grid(n_dim, c_dim, h_dim, w_dim):
-                with T.block("global_to_shared"):
-                    vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
-                    T.reads(global_buff[vn, vc, vh, vw])
-                    T.writes(shared_buff[vn, vc, vh, vw])
-                    shared_buff[vn, vc, vh, vw] = global_buff[vn, vc, vh, vw]
-    
-
-    @T.prim_func
-    def ldtensor_impl(shared_handle: T.handle, global_handle: T.handle):
-        global_buff = T.match_buffer(
-            global_handle,
-            shared_shape,
-            dtype,
-            offset_factor=1,
-            scope="global"
-        )
-        shared_buff = T.match_buffer(
-            shared_handle,
-            shared_shape,
-            dtype,
-            offset_factor=1,
-            scope="shared"
-        )
-        n_dim, c_dim, h_dim, w_dim = shared_shape
-        s0 = T.var("int32")
-        s1 = T.var("int32")
-        s2 = T.var("int32")
-        s3 = T.var("int32")
-        with T.block("root"):
-            T.reads(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-            T.writes(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-            T.evaluate(
-                T.oraa_slice_tensor(shared_buff.data,
-                                  global_buff.data,
-                                  global_buff.elem_offset,
-                                  s0, s1, s2, s3,
-                                  n_dim, c_dim, h_dim, w_dim,
-                                  dtype=dtype)
-                )
-    
-    return ldtensor_desc, ldtensor_impl
-
-
-def get_sttensor_intrin(shared_shape, dtype):
-    @T.prim_func
-    def sttensor_desc(shared_handle: T.handle, global_handle: T.handle):
-        global_buff = T.match_buffer(
-            global_handle,
-            shared_shape,
-            dtype,
-            offset_factor=1,
-            scope="global"
-        )
-        shared_buff = T.match_buffer(
-            shared_handle,
-            shared_shape,
-            dtype,
-            offset_factor=1,
-            scope="shared"
-        )
-        n_dim, c_dim, h_dim, w_dim = shared_shape
-        with T.block("root"):
-            T.reads(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-            T.writes(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-
-            for n, c, h, w in T.grid(n_dim, c_dim, h_dim, w_dim):
-                with T.block("shared_to_global"):
-                    vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
-                    T.reads(shared_buff[vn, vc, vh, vw])
-                    T.writes(global_buff[vn, vc, vh, vw])
-                    global_buff[vn, vc, vh, vw] = shared_buff[vn, vc, vh, vw]
-
-
-    @T.prim_func
-    def sttensor_impl(shared_handle: T.handle, global_handle: T.handle):
-        global_buff = T.match_buffer(
-            global_handle,
-            shared_shape,
-            dtype,
-            scope="global",
-            offset_factor=1,
-        )
-        shared_buff = T.match_buffer(
-            shared_handle,
-            shared_shape,
-            dtype,
-            scope="shared"
-        )
-        n_dim, c_dim, h_dim, w_dim = shared_shape
-        with T.block("root"):
-            T.reads(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-            T.writes(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
-            
-            T.evaluate(T.call_extern(
-                "vec4add",
-                shared_buff.data,
-                shared_buff.elem_offset,
-                shared_buff.data,
-                shared_buff.elem_offset,
-                global_buff.data,
-                global_buff.elem_offset,
-                dtype=dtype,
-            ))
-    
-    return sttensor_desc, sttensor_impl
-
-
-ORAA_RELU_N2C2H8W2_INTRIN = "oraa_relu_n2c2h8w2"
-
-TensorIntrin.register(ORAA_RELU_N2C2H8W2_INTRIN,
-                      relu_n2c2h8w2_desc, relu_n2c2h8w2_impl)
-
 ORAA_PIXEL_SHUFFLE_N2C8H4W4_INTRIN = "oraa_pixel_shuffle_n2c8h4w4"
 
 TensorIntrin.register(
@@ -334,6 +144,64 @@ TensorIntrin.register(
 
 
 @T.prim_func
+def relu_n2c2h8w2_desc(a: T.handle, b: T.handle) -> None:
+    """
+    Int8 add description by shape (2, 2, 8, 2) with NCHW layout
+
+    Parameters
+    ----------
+    a: tvm.script.tir.handle
+      the input data pointer
+    b: tvm.script.tir.handle
+      the output data pointer
+    """
+    A = T.match_buffer(a, (2, 2, 8, 2), dtype="int8", scope="shared")
+    B = T.match_buffer(b, (2, 2, 8, 2), dtype="int8", scope="shared")
+    with T.block("root"):
+        T.reads(A[0:2, 0:2, 0:8, 0:2])
+        T.writes(B[0:2, 0:2, 0:8, 0:2])
+        for n, c, h, w in T.grid(2, 2, 8, 2):
+            with T.block("pixel_shuffel_basic_block"):
+                vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
+                B[vn, vc, vh, vw] = tvm.tir.max(A[vn, vc, vh, vw], T.int8(0))
+
+
+@T.prim_func
+def relu_n2c2h8w2_impl(a: T.handle, b: T.handle) -> None:
+    """
+    Int8 pixel shuffle implementation by shape (2, 2, 8, 2) with NCHW layout
+    Note: This tensorize implemetation is just a demonstration and not semantic equal!
+
+    Parameters
+    ----------
+    a: tvm.script.tir.handle
+      the input data pointer
+    b: tvm.script.tir.handle
+      the output data pointer
+    """
+    A = T.match_buffer(a, (2, 2, 8, 2), dtype="int8", scope="shared")
+    B = T.match_buffer(b, (2, 2, 8, 2), dtype="int8", scope="shared")
+    with T.block("root"):
+        T.reads(A[0:2, 0:2, 0:8, 0:2])
+        T.writes(B[0:2, 0:2, 0:8, 0:2])
+        T.evaluate(
+            T.call_extern(
+                "relu",
+                A.data,
+                A.elem_offset,
+                B.data,
+                B.elem_offset,
+                dtype="int8",
+            )
+        )
+
+
+ORAA_RELU_N2C2H8W2_INTRIN = "oraa_relu_n2c2h8w2"
+
+TensorIntrin.register(ORAA_RELU_N2C2H8W2_INTRIN, relu_n2c2h8w2_desc, relu_n2c2h8w2_impl)
+
+
+@T.prim_func
 def add4_n2c8h4w4_desc(a: T.handle, b: T.handle, c: T.handle, d: T.handle, out: T.handle) -> None:
     """
     Int8 add4 description by shape (2, 8, 4, 4) with NCHW layout
@@ -352,11 +220,11 @@ def add4_n2c8h4w4_desc(a: T.handle, b: T.handle, c: T.handle, d: T.handle, out: 
       the output data pointer
     """
 
-    A = T.match_buffer(a, (2, 8, 4, 4), dtype="int8")
-    B = T.match_buffer(b, (2, 8, 4, 4), dtype="int8")
-    C = T.match_buffer(c, (2, 8, 4, 4), dtype="int8")
-    D = T.match_buffer(d, (2, 8, 4, 4), dtype="int8")
-    Out = T.match_buffer(out, (2, 8, 4, 4), dtype="int8")
+    A = T.match_buffer(a, (2, 8, 4, 4), dtype="int8", scope="shared")
+    B = T.match_buffer(b, (2, 8, 4, 4), dtype="int8", scope="shared")
+    C = T.match_buffer(c, (2, 8, 4, 4), dtype="int8", scope="shared")
+    D = T.match_buffer(d, (2, 8, 4, 4), dtype="int8", scope="shared")
+    Out = T.match_buffer(out, (2, 8, 4, 4), dtype="int8", scope="shared")
     with T.block("root"):
         T.reads(
             A[0:2, 0:8, 0:4, 0:4],
@@ -391,11 +259,11 @@ def add4_n2c8h4w4_impl(a: T.handle, b: T.handle, c: T.handle, d: T.handle, out: 
     out: tvm.script.tir.handle
       the output data pointer
     """
-    A = T.match_buffer(a, (2, 8, 4, 4), dtype="int8")
-    B = T.match_buffer(b, (2, 8, 4, 4), dtype="int8")
-    C = T.match_buffer(c, (2, 8, 4, 4), dtype="int8")
-    D = T.match_buffer(d, (2, 8, 4, 4), dtype="int8")
-    Out = T.match_buffer(out, (2, 8, 4, 4), dtype="int8")
+    A = T.match_buffer(a, (2, 8, 4, 4), dtype="int8", scope="shared")
+    B = T.match_buffer(b, (2, 8, 4, 4), dtype="int8", scope="shared")
+    C = T.match_buffer(c, (2, 8, 4, 4), dtype="int8", scope="shared")
+    D = T.match_buffer(d, (2, 8, 4, 4), dtype="int8", scope="shared")
+    Out = T.match_buffer(out, (2, 8, 4, 4), dtype="int8", scope="shared")
     with T.block("root"):
         T.reads(
             A[0:2, 0:8, 0:4, 0:4],
@@ -406,13 +274,17 @@ def add4_n2c8h4w4_impl(a: T.handle, b: T.handle, c: T.handle, d: T.handle, out: 
         T.writes(Out[0:2, 0:8, 0:4, 0:4])
         T.evaluate(
             T.call_extern(
-                "vec4add",
-                A.data,
-                B.elem_offset,
+                "add4",
                 A.data,
                 A.elem_offset,
                 B.data,
                 B.elem_offset,
+                C.data,
+                C.elem_offset,
+                D.data,
+                D.elem_offset,
+                Out.data,
+                Out.elem_offset,
                 dtype="int8",
             )
         )
@@ -504,11 +376,138 @@ TensorIntrin.register(
     pointwise_conv2d_n2c8h2w8_oc8ic8kh1kw1_impl,
 )
 
-ORAA_LDG2S_N2C2H8W2_INT8_INTRIN = "oraa_ldg2s_n2c2h8w2_int8"
-TensorIntrin.register(ORAA_LDG2S_N2C2H8W2_INT8_INTRIN,
-                      *get_ldtensor_intrin([2, 2, 8, 2], "int8"))
+# api.write_to_tensor
+def get_ldtensor_intrin(shared_shape, dtype):
+    @T.prim_func
+    def ldtensor_desc(shared_handle: T.handle, global_handle: T.handle):
+        global_buff = T.match_buffer(
+            global_handle,
+            shared_shape,
+            dtype,
+            offset_factor=1,
+            scope="global",
+        )
+        shared_buff = T.match_buffer(
+            shared_handle, shared_shape, dtype, offset_factor=1, scope="shared"
+        )
+        n_dim, c_dim, h_dim, w_dim = shared_shape
+        with T.block("root"):
+            T.reads(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
+            T.writes(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
 
+            for n, c, h, w in T.grid(n_dim, c_dim, h_dim, w_dim):
+                with T.block("global_to_shared"):
+                    vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
+                    T.reads(global_buff[vn, vc, vh, vw])
+                    T.writes(shared_buff[vn, vc, vh, vw])
+                    shared_buff[vn, vc, vh, vw] = global_buff[vn, vc, vh, vw]
+
+    @T.prim_func
+    def ldtensor_impl(shared_handle: T.handle, global_handle: T.handle):
+        global_buff = T.match_buffer(
+            global_handle, shared_shape, dtype, offset_factor=1, scope="global"
+        )
+        shared_buff = T.match_buffer(
+            shared_handle, shared_shape, dtype, offset_factor=1, scope="shared"
+        )
+        n_dim, c_dim, h_dim, w_dim = shared_shape
+        s0 = T.var("int32")
+        s1 = T.var("int32")
+        s2 = T.var("int32")
+        s3 = T.var("int32")
+        with T.block("root"):
+            T.reads(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
+            T.writes(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
+            T.evaluate(
+                T.oraa_slice_tensor(
+                    shared_buff.data,
+                    global_buff.data,
+                    global_buff.elem_offset,
+                    s0,
+                    s1,
+                    s2,
+                    s3,
+                    n_dim,
+                    c_dim,
+                    h_dim,
+                    w_dim,
+                    dtype=dtype,
+                )
+            )
+            T.evaluate(
+                T.call_extern(
+                    "write_to_tensor",
+                    shared_buff.data,
+                    shared_buff.elem_offset,
+                    global_buff.data,
+                    global_buff.elem_offset,
+                    dtype=dtype,
+                )
+            )
+
+    return ldtensor_desc, ldtensor_impl
+
+
+# api.read_from_tensor
+def get_sttensor_intrin(shared_shape, dtype):
+    @T.prim_func
+    def sttensor_desc(shared_handle: T.handle, global_handle: T.handle):
+        global_buff = T.match_buffer(
+            global_handle, shared_shape, dtype, offset_factor=1, scope="global"
+        )
+        shared_buff = T.match_buffer(
+            shared_handle, shared_shape, dtype, offset_factor=1, scope="shared"
+        )
+        n_dim, c_dim, h_dim, w_dim = shared_shape
+        with T.block("root"):
+            T.reads(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
+            T.writes(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
+
+            for n, c, h, w in T.grid(n_dim, c_dim, h_dim, w_dim):
+                with T.block("shared_to_global"):
+                    vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
+                    T.reads(shared_buff[vn, vc, vh, vw])
+                    T.writes(global_buff[vn, vc, vh, vw])
+                    global_buff[vn, vc, vh, vw] = shared_buff[vn, vc, vh, vw]
+
+    @T.prim_func
+    def sttensor_impl(shared_handle: T.handle, global_handle: T.handle):
+        global_buff = T.match_buffer(
+            global_handle,
+            shared_shape,
+            dtype,
+            scope="global",
+            offset_factor=1,
+        )
+        shared_buff = T.match_buffer(shared_handle, shared_shape, dtype, scope="shared")
+        n_dim, c_dim, h_dim, w_dim = shared_shape
+        with T.block("root"):
+            T.reads(shared_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
+            T.writes(global_buff[0:n_dim, 0:c_dim, 0:h_dim, 0:w_dim])
+            T.evaluate(
+                T.call_extern(
+                    "read_from_tensor",
+                    shared_buff.data,
+                    shared_buff.elem_offset,
+                    global_buff.data,
+                    global_buff.elem_offset,
+                    dtype=dtype,
+                )
+            )
+
+    return sttensor_desc, sttensor_impl
+
+
+# 2282 block
+ORAA_LDG2S_N2C2H8W2_INT8_INTRIN = "oraa_ldg2s_n2c2h8w2_int8"
+TensorIntrin.register(ORAA_LDG2S_N2C2H8W2_INT8_INTRIN, *get_ldtensor_intrin([2, 2, 8, 2], "int8"))
 
 ORAA_STS2G_N2C2H8W2_INT8_INTRIN = "oraa_sts2g_n2c2h8w2_int8"
-TensorIntrin.register(ORAA_STS2G_N2C2H8W2_INT8_INTRIN,
-                      *get_sttensor_intrin([2, 2, 8, 2], "int8"))
+TensorIntrin.register(ORAA_STS2G_N2C2H8W2_INT8_INTRIN, *get_sttensor_intrin([2, 2, 8, 2], "int8"))
+
+# 2844 block
+ORAA_LDG2S_N2C8H4W4_INT8_INTRIN = "oraa_ldg2s_n2c8h4w4_int8"
+TensorIntrin.register(ORAA_LDG2S_N2C8H4W4_INT8_INTRIN, *get_ldtensor_intrin([2, 8, 4, 4], "int8"))
+
+ORAA_STS2G_N2C8H4W4_INT8_INTRIN = "oraa_sts2g_n2c8h4w4_int8"
+TensorIntrin.register(ORAA_STS2G_N2C8H4W4_INT8_INTRIN, *get_sttensor_intrin([2, 8, 4, 4], "int8"))

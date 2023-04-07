@@ -169,6 +169,9 @@ private:
   std::unordered_map<const VarNode*, std::string> alloc_storage_scope_;
   /*! \brief the data type of allocated buffers */
   std::unordered_map<const VarNode*, DataType> handle_data_type_;
+  /*! \brief the <start, size> tuple for each allocated buffers */
+  std::unordered_map<const AllocateNode*, std::pair<int,int>> malloc_pair_;
+  int current_malloc_size_ = 0;
 };
 
 
