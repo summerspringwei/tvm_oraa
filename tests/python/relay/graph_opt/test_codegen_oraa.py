@@ -22,48 +22,63 @@ def test_tensorize_oraa_pixel_shuffle(input_shape: list):
 
     sch = tir.Schedule(ir_module_from_te)
     block_pixel_shuffle = sch.get_block("PixelShuffle")
-
     (n, c, h, w) = sch.get_loops(block_pixel_shuffle)
     no, ni = sch.split(n, factors=[None, 2])
     co, ci = sch.split(c, factors=[None, 2])
     ho, hi = sch.split(h, factors=[None, 8])
     wo, wi = sch.split(w, factors=[None, 8])
     sch.reorder(no, co, ho, wo, ni, ci, hi, wi)
-    fused_outer = sch.fuse(no, co, ho, wo)
-    sch.bind(fused_outer, "blockIdx.x")
-    # shared_read_block_pixel_shuffle = sch.cache_read(block_pixel_shuffle, 0, "shared")
-    # sch.compute_at(shared_read_block_pixel_shuffle, fused_outer)
-    # shared_write_block_pixel_shuffle = sch.cache_write(block_pixel_shuffle, 0, "shared")
-    # sch.reverse_compute_at(shared_write_block_pixel_shuffle, fused_outer)
-    def split_read(block, idx, tile_shape):
-        block_read = sch.cache_read(block, idx, "shared")
-        fused = sch.fuse(*sch.get_loops(block_read))
-        splited_axis = sch.split(fused, factors=(tile_shape))
-        return block_read, splited_axis[-4]
-
-    block_read, tensorize_axis = split_read(block_pixel_shuffle, 0, [None, 2, 8, 4, 4])
-    sch.compute_at(block_read, fused_outer)
-
+    block_inner = sch.blockize(ni)
+    a_shared = sch.cache_read(block_inner, 0, "shared")
+    e_shared = sch.cache_write(block_inner, 0, "shared")
+    sch.compute_at(a_shared, wo)
+    sch.reverse_compute_at(e_shared, wo)
+    ani, _, _, _ = sch.get_loops(a_shared)[-4:]
+    sch.tensorize(ani, oraa_cuda.ORAA_LDG2S_N2C8H4W4_INT8_INTRIN)
     sch.tensorize(ni, oraa_cuda.ORAA_PIXEL_SHUFFLE_N2C8H4W4_INTRIN)
-    # block_tensorized_pixel_shuffle = sch.get_block("PixelShuffle_o")
-
-    return sch
-
-
-def test_oraa_build(input_shape: list):
-    sch = test_tensorize_oraa_pixel_shuffle(input_shape)
-    print(sch.mod.script())
-    input_placeholder = te.placeholder(input_shape, dtype="int8", name="input_tvm")
-    output_shape = input_shape
-    output_placeholder = te.placeholder(output_shape, dtype="int8", name="output_tvm")
+    e_n, _, _, _ = sch.get_loops(e_shared)[-4:]
+    sch.tensorize(e_n, oraa_cuda.ORAA_STS2G_N2C2H8W8_INT8_INTRIN)
+    sch.bind(no, "blockIdx.x")
+    # print(sch.mod)
     target = Target("oraa")
-    func = tvm.build(sch.mod, [input_placeholder, output_placeholder], target=target)
+    # target = 'cuda'
+    func = tvm.build(sch.mod, [input_tensor, output_tensor], target=target)
     print(func)
-    input_np = np.array(np.random.randn(*input_shape) * 128, dtype=np.byte)
-    output_np = np.array(np.zeros(output_shape), dtype=np.byte)
-    input_tvm = tvm.nd.array(input_np, device=tvm.cuda(0))
-    output_tvm = tvm.nd.array(output_np, device=tvm.cuda(0))
-    # func(input_tvm, output_tvm)
+    print(func.imported_modules[0].get_source())
+
+
+def test_tensorize_oraa_pixel_unshuffle(input_shape: list):
+    """Test tensorize of pixel unshuffle computation"""
+    input_tensor = te.placeholder(input_shape, dtype="int8", name="input_name")
+    output_tensor = pixel_shuffle_cuda.pixel_unshuffle_nchw(input_tensor, (2, 2))
+    output_tensor = pixel_shuffle_cuda.pixel_unshuffle_nchw(input_tensor, [2, 2])
+    func = te.create_prim_func([input_tensor, output_tensor])
+    ir_module_from_te = IRModule({"main": func})
+    sch = tir.Schedule(ir_module_from_te)
+    block_pixel_unshuffle = sch.get_block("PixelUnshuffle")
+    (n, c, h, w) = sch.get_loops(block_pixel_unshuffle)
+    no, ni = sch.split(n, factors=[None, 2])
+    co, ci = sch.split(c, factors=[None, 32])
+    ho, hi = sch.split(h, factors=[None, 2])
+    wo, wi = sch.split(w, factors=[None, 2])
+    sch.reorder(no, co, ho, wo, ni, ci, hi, wi)
+    block_inner = sch.blockize(ni)
+
+    a_shared = sch.cache_read(block_inner, 0, "shared")
+    e_shared = sch.cache_write(block_inner, 0, "shared")
+    sch.compute_at(a_shared, wo)
+    sch.reverse_compute_at(e_shared, wo)
+    ani, _, _, _ = sch.get_loops(a_shared)[-4:]
+    sch.tensorize(ani, oraa_cuda.ORAA_LDG2S_N2C8H4W4_INT8_INTRIN)
+    sch.tensorize(ni, oraa_cuda.ORAA_PIXEL_UNSHUFFLE_N2C8H4W4_INTRIN)
+    e_n, _, _, _ = sch.get_loops(e_shared)[-4:]
+    sch.tensorize(e_n, oraa_cuda.ORAA_STS2G_N2C32H2W2_INT8_INTRIN)
+    sch.bind(no, "blockIdx.x")
+    target = Target("oraa")
+    # target = 'cuda'
+    func = tvm.build(sch.mod, [input_tensor, output_tensor], target=target)
+    print(func)
+    print(func.imported_modules[0].get_source())
 
 
 def relu(input_shape):
@@ -91,6 +106,86 @@ def add(input_shape):
 
 
 def test_tensorize_oraa_add(input_shape):
+    a = te.placeholder(input_shape, dtype="int8", name="add_a")
+    b = te.placeholder(input_shape, dtype="int8", name="add_b")
+    out = te.compute(
+        input_shape,
+        lambda vn, vc, vh, vw: a[vn, vc, vh, vw] + b[vn, vc, vh, vw],
+    )
+    func = te.create_prim_func([a, b, out])
+    mod = IRModule({"main": func})
+    sch = tir.Schedule(mod)
+    # print(sch.mod)
+    block = sch.get_block("compute")
+    (n, c, h, w) = sch.get_loops(block)
+    no, ni = sch.split(n, factors=[None, 2])
+    co, ci = sch.split(c, factors=[None, 8])
+    ho, hi = sch.split(h, factors=[None, 4])
+    wo, wi = sch.split(w, factors=[None, 4])
+    sch.reorder(no, co, ho, wo, ni, ci, hi, wi)
+    block_inner = sch.blockize(ni)
+    a_shared = sch.cache_read(block_inner, 0, "shared")
+    b_shared = sch.cache_read(block_inner, 1, "shared")
+    e_shared = sch.cache_write(block_inner, 0, "shared")
+    sch.compute_at(a_shared, wo)
+    sch.compute_at(b_shared, wo)
+    sch.reverse_compute_at(e_shared, wo)
+    ani, _, _, _ = sch.get_loops(a_shared)[-4:]
+    sch.tensorize(ani, oraa_cuda.ORAA_LDG2S_N2C8H4W4_INT8_INTRIN)
+    bni, _, _, _ = sch.get_loops(b_shared)[-4:]
+    sch.tensorize(bni, oraa_cuda.ORAA_LDG2S_N2C8H4W4_INT8_INTRIN)
+    e_n, _, _, _ = sch.get_loops(e_shared)[-4:]
+    sch.tensorize(e_n, oraa_cuda.ORAA_STS2G_N2C8H4W4_INT8_INTRIN)
+    sch.tensorize(ni, oraa_cuda.ORAA_Add2_N2C8H4W4_INTRIN)
+    sch.bind(no, "blockIdx.x")
+    target = Target("oraa")
+    # target = 'cuda'
+    func = tvm.build(sch.mod, [a, b], target=target)
+    print(func)
+    print(func.imported_modules[0].get_source())
+
+
+def test_tensorize_oraa_sub(input_shape):
+    a = te.placeholder(input_shape, dtype="int8", name="add_a")
+    b = te.placeholder(input_shape, dtype="int8", name="add_b")
+    out = te.compute(
+        input_shape,
+        lambda vn, vc, vh, vw: a[vn, vc, vh, vw] - b[vn, vc, vh, vw],
+    )
+    func = te.create_prim_func([a, b, out])
+    mod = IRModule({"main": func})
+    sch = tir.Schedule(mod)
+    # print(sch.mod)
+    block = sch.get_block("compute")
+    (n, c, h, w) = sch.get_loops(block)
+    no, ni = sch.split(n, factors=[None, 2])
+    co, ci = sch.split(c, factors=[None, 8])
+    ho, hi = sch.split(h, factors=[None, 4])
+    wo, wi = sch.split(w, factors=[None, 4])
+    sch.reorder(no, co, ho, wo, ni, ci, hi, wi)
+    block_inner = sch.blockize(ni)
+    a_shared = sch.cache_read(block_inner, 0, "shared")
+    b_shared = sch.cache_read(block_inner, 1, "shared")
+    e_shared = sch.cache_write(block_inner, 0, "shared")
+    sch.compute_at(a_shared, wo)
+    sch.compute_at(b_shared, wo)
+    sch.reverse_compute_at(e_shared, wo)
+    ani, _, _, _ = sch.get_loops(a_shared)[-4:]
+    sch.tensorize(ani, oraa_cuda.ORAA_LDG2S_N2C8H4W4_INT8_INTRIN)
+    bni, _, _, _ = sch.get_loops(b_shared)[-4:]
+    sch.tensorize(bni, oraa_cuda.ORAA_LDG2S_N2C8H4W4_INT8_INTRIN)
+    e_n, _, _, _ = sch.get_loops(e_shared)[-4:]
+    sch.tensorize(e_n, oraa_cuda.ORAA_STS2G_N2C8H4W4_INT8_INTRIN)
+    sch.tensorize(ni, oraa_cuda.ORAA_Sub_N2C8H4W4_INTRIN)
+    sch.bind(no, "blockIdx.x")
+    target = Target("oraa")
+    # target = 'cuda'
+    func = tvm.build(sch.mod, [a, b], target=target)
+    print(func)
+    print(func.imported_modules[0].get_source())
+
+
+def test_tensorize_oraa_add4(input_shape):
     a, b, c, d, e = add(input_shape)
     func = te.create_prim_func([a, b, c, d, e])
     mod = IRModule({"main": func})
@@ -175,8 +270,10 @@ def test_tensorize_oraa_relu(input_shape):
 
 
 if __name__ == "__main__":
-    test_tensorize_oraa_relu((2, 16, 8, 8))
+    # test_tensorize_oraa_relu((2, 16, 8, 8))
     # test_tensorize_oraa_relu((256, 256, 64, 64))
     # test_tensorize_oraa_pixel_shuffle((2, 16, 8, 8))
-    # test_oraa_build((2, 16, 8, 8))
+    # test_tensorize_oraa_pixel_unshuffle((2, 8, 4, 4))
+    # test_tensorize_oraa_add4((2, 16, 8, 8))
     test_tensorize_oraa_add((2, 16, 8, 8))
+    test_tensorize_oraa_sub((2, 16, 8, 8))

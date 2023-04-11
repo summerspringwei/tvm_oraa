@@ -313,22 +313,21 @@ void CodeGenORAA::VisitExpr_(const NotNode* op, std::ostream& os) {  // NOLINT(*
 void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os) {
   if (op->op.same_as(builtin::oraa_slice_tensor())) {
     ICHECK_EQ(op->args.size(), 11U);
-    // api.slice(shared_buf,global_buf,:,:,:,:)
+    // shared_buf = api.slice(global_buf,:,:,:,:)
+    // sliced_buf(global) = global_buf[][][][]
     this->PrintExpr(op->args[0], os);
-    os << " = api.slice_tensor(";
+    os << " = ";
     this->PrintExpr(op->args[1], os);
-    os << ",";
+    os << "[";
     for (int i = 0; i < 4; ++i) {
-      os << "slice(";
       os << this->PrintExpr(op->args[3 + i]);
-      os << ",";
+      os << ":";
       os << this->PrintExpr(op->args[3 + i]) << "+" << this->PrintExpr(op->args[3 + 4 + i]);
-      os << ")";
       if (i < 3) {
         os << ",";
       }
     }
-    os << ")";
+    os << "]";
     std::stringstream ss;
     ss << os.rdbuf();
     VLOG(2) << ss.str();
@@ -338,16 +337,16 @@ void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os) {
       ICHECK_EQ(op->args.size(), 5U);
       // @need structural?
       os << "api.write_to_tensor(";
-      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << this->PrintExpr(op->args[1]) << "[" << this->PrintExpr(op->args[2]) << "]";
       os << ",";
-      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << this->PrintExpr(op->args[3]) << "[" << this->PrintExpr(op->args[4]) << "]";
       os << ")\n";
     } else if (func_name == "\"read_from_tensor\"") {
       ICHECK_EQ(op->args.size(), 5U);
       // @need structural?
-      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << this->PrintExpr(op->args[3]) << "[" << this->PrintExpr(op->args[4]) << "]";
       os << " = api.read_from_tensor(";
-      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << this->PrintExpr(op->args[1]) << "[" << this->PrintExpr(op->args[2]) << "]";
       os << ")\n";
     } else if (func_name == "\"relu\"") {
       ICHECK_EQ(op->args.size(), 5U);
@@ -357,10 +356,57 @@ void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os) {
       os << "0";
       os << ",";
       // in
-      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << this->PrintExpr(op->args[1]) << "[" << this->PrintExpr(op->args[2]) << "]";
       os << ",";
       // out
-      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << this->PrintExpr(op->args[3]) << "[" << this->PrintExpr(op->args[4]) << "]";
+      os << ")\n";
+    } else if (func_name == "\"binary_add\"") {
+      os << "api.add";
+      os << "(";
+      // core_id;
+      os << "0";
+      os << ", in0=";
+      // in
+      os << this->PrintExpr(op->args[1]) << "[" << this->PrintExpr(op->args[2]) << "]";
+      os << ", in1=";
+      os << this->PrintExpr(op->args[3]) << "[" << this->PrintExpr(op->args[4]) << "]";
+      os << ", in2=None";
+      os << ", in3=None";
+      // out
+      os << ", out=";
+      os << this->PrintExpr(op->args[5]) << "[" << this->PrintExpr(op->args[6]) << "]";
+      os << ")\n";
+    } else if (func_name == "\"binary_sub\"") {
+      os << "api.sub";
+      os << "(";
+      // core_id;
+      os << "0";
+      os << ", in0=";
+      // in
+      os << this->PrintExpr(op->args[1]) << "[" << this->PrintExpr(op->args[2]) << "]";
+      os << ", in1=";
+      os << this->PrintExpr(op->args[3]) << "[" << this->PrintExpr(op->args[4]) << "]";
+      // out
+      os << ", out=";
+      os << this->PrintExpr(op->args[5]) << "[" << this->PrintExpr(op->args[6]) << "]";
+      os << ")\n";
+    } else if (func_name == "\"add3\"") {
+      os << "api.add";
+      os << "(";
+      // core_id;
+      os << "0";
+      os << ", in0=";
+      // in
+      os << this->PrintExpr(op->args[1]) << "[" << this->PrintExpr(op->args[2]) << "]";
+      os << ", in1=";
+      os << this->PrintExpr(op->args[3]) << "[" << this->PrintExpr(op->args[4]) << "]";
+      os << ", in2=";
+      os << this->PrintExpr(op->args[5]) << "[" << this->PrintExpr(op->args[6]) << "]";
+      os << ", in3=None";
+      // out
+      os << ", out=";
+      os << this->PrintExpr(op->args[7]) << "[" << this->PrintExpr(op->args[8]) << "]";
       os << ")\n";
     } else if (func_name == "\"add4\"") {
       ICHECK_EQ(op->args.size(), 11U);
@@ -370,16 +416,54 @@ void CodeGenORAA::VisitExpr_(const CallNode* op, std::ostream& os) {
       os << "0";
       os << ", in0=";
       // in
-      os << this->PrintExpr(op->args[1]) << "+" << this->PrintExpr(op->args[2]);
+      os << this->PrintExpr(op->args[1]) << "[" << this->PrintExpr(op->args[2]) << "]";
       os << ", in1=";
-      os << this->PrintExpr(op->args[3]) << "+" << this->PrintExpr(op->args[4]);
+      os << this->PrintExpr(op->args[3]) << "[" << this->PrintExpr(op->args[4]) << "]";
       os << ", in2=";
-      os << this->PrintExpr(op->args[5]) << "+" << this->PrintExpr(op->args[6]);
+      os << this->PrintExpr(op->args[5]) << "[" << this->PrintExpr(op->args[6]) << "]";
       os << ", in3=";
-      os << this->PrintExpr(op->args[7]) << "+" << this->PrintExpr(op->args[8]);
+      os << this->PrintExpr(op->args[7]) << "[" << this->PrintExpr(op->args[8]) << "]";
       // out
       os << ", out=";
-      os << this->PrintExpr(op->args[9]) << "+" << this->PrintExpr(op->args[10]);
+      os << this->PrintExpr(op->args[9]) << "[" << this->PrintExpr(op->args[10]) << "]";
+      os << ")\n";
+    } else if (func_name == "\"pixel_shuffle\"") {
+      ICHECK_EQ(op->args.size(), 13U);
+      // api.pixel_shuffle(in, out)
+      os << "api.pixel_shuffle(";
+      // core_id
+      os << "0";
+      os << ", ";
+      // input
+      os << this->PrintExpr(op->args[1]);
+      if (PrintExpr(op->args[2]) != "0") {
+        ;
+      }
+      os << ", ";
+      // output
+      os << this->PrintExpr(op->args[3]);
+      if (PrintExpr(op->args[4]) != "0") {
+        ;
+      }
+      os << ")\n";
+    } else if (func_name == "\"pixel_unshuffle\"") {
+      ICHECK_EQ(op->args.size(), 13U);
+      // api.pixel_shuffle(in, out)
+      os << "api.pixel_unshuffle(";
+      // core_id
+      os << "0";
+      os << ", ";
+      // input
+      os << this->PrintExpr(op->args[1]);
+      if (PrintExpr(op->args[2]) != "0") {
+        ;
+      }
+      os << ", ";
+      // output
+      os << this->PrintExpr(op->args[3]);
+      if (PrintExpr(op->args[4]) != "0") {
+        ;
+      }
       os << ")\n";
     }
   }
