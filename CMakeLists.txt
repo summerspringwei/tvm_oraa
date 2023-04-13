@@ -126,10 +126,12 @@ include_directories(SYSTEM ${DMLC_PATH})
 include_directories(SYSTEM ${RANG_PATH})
 include_directories(SYSTEM ${COMPILER_RT_PATH})
 include_directories(SYSTEM ${PICOJSON_PATH})
+include_directories(SYSTEM /home/dla/.local/lib/python3.9/site-packages/nvidia/cuda_nvrtc/include/)
 
 # initial variables
 set(TVM_LINKER_LIBS "")
 set(TVM_RUNTIME_LINKER_LIBS "")
+set(CUDA_NVRTC_LIBRARY "/home/dla/.local/lib/python3.9/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.11.2")
 
 
 # Check if this is being run on its own or as a subdirectory for another project

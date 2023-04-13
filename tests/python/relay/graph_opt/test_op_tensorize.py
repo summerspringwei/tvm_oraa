@@ -130,8 +130,8 @@ def test_tensorize_oraa_add4(input_shape: list):
 
 
 if __name__ == "__main__":
-    test_tensorize_oraa_pixel_shuffle((16, 16, 16, 16))
+    # test_tensorize_oraa_pixel_shuffle((16, 16, 16, 16))
     test_tensorize_oraa_pixel_unshuffle((4, 32, 8, 8))
-    # test_tensorize_oraa_pointwise_conv2d((4, 8, 2, 8))
+    test_tensorize_oraa_pointwise_conv2d((4, 8, 2, 8))
     # test_tensorize_oraa_add4((2, 8, 4, 4))
     print("Success")

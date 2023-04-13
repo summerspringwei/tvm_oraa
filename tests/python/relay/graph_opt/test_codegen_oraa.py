@@ -270,10 +270,10 @@ def test_tensorize_oraa_relu(input_shape):
 
 
 if __name__ == "__main__":
-    # test_tensorize_oraa_relu((2, 16, 8, 8))
-    # test_tensorize_oraa_relu((256, 256, 64, 64))
-    # test_tensorize_oraa_pixel_shuffle((2, 16, 8, 8))
-    # test_tensorize_oraa_pixel_unshuffle((2, 8, 4, 4))
-    # test_tensorize_oraa_add4((2, 16, 8, 8))
+    test_tensorize_oraa_relu((2, 16, 8, 8))
+    test_tensorize_oraa_relu((256, 256, 64, 64))
+    test_tensorize_oraa_pixel_shuffle((2, 16, 8, 8))
+    test_tensorize_oraa_pixel_unshuffle((2, 8, 4, 4))
+    test_tensorize_oraa_add4((2, 16, 8, 8))
     test_tensorize_oraa_add((2, 16, 8, 8))
     test_tensorize_oraa_sub((2, 16, 8, 8))
