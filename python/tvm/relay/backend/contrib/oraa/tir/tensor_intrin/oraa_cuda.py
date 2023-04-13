@@ -313,7 +313,7 @@ def get_add4_intrin(input_shape, dtype):
 
     return add4_desc, add4_impl
 
-
+# mod="DCR"
 def get_pixelshuffle_intrin(input_shape, dtype):
     @T.prim_func
     def pixelshuffle_desc(a: T.handle, b: T.handle):
@@ -333,9 +333,9 @@ def get_pixelshuffle_intrin(input_shape, dtype):
                     vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
                     B[vn, vc, vh, vw] = A[
                         vn,
-                        vc * 2 * 2 + tvm.tir.indexmod(vh, 2) * 2 + tvm.tir.indexmod(vw, 2),
-                        tvm.tir.indexdiv(vh, 2),
-                        tvm.tir.indexdiv(vw, 2),
+                        vc + tvm.tir.truncmod(vh,2) * 4 + tvm.tir.truncmod(vw,2) * 2,
+                        tvm.tir.truncdiv(vh,2),
+                        tvm.tir.truncdiv(vw,2),
                     ]
 
     @T.prim_func
@@ -396,9 +396,9 @@ def get_pixelunshuffle_intrin(input_shape, dtype):
                     vn, vc, vh, vw = T.axis.remap("SSSS", [n, c, h, w])
                     B[vn, vc, vh, vw] = A[
                         vn,
-                        tvm.tir.indexmod(vc, c_dim),
-                        tvm.tir.indexdiv(tvm.tir.indexdiv(vc, c_dim), 2) + (vh * 2),
-                        tvm.tir.indexmod(tvm.tir.indexdiv(vc, c_dim), 2) + (vw * 2),
+                        tvm.tir.floormod(vc, c_dim),
+                        tvm.tir.floordiv(tvm.tir.floordiv(vc, c_dim), 2) + (vh * 2),
+                        tvm.tir.floormod(tvm.tir.floordiv(vc, c_dim), 2) + (vw * 2),
                     ]
 
     @T.prim_func
