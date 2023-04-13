@@ -38,7 +38,7 @@ def test_double_buffer():
 
     stmt = ib.get()
     mod = tvm.IRModule({"db": tvm.tir.PrimFunc([A.asobject(), C.asobject()], stmt)})
-
+    print(mod.script())
     opt = tvm.transform.Sequential(
         [tvm.tir.transform.InjectDoubleBuffer(), tvm.tir.transform.Simplify()]
     )
@@ -46,7 +46,7 @@ def test_double_buffer():
     with tvm.transform.PassContext(config={"tir.InjectDoubleBuffer": {"split_loop": 2}}):
         mod = opt(mod)
     stmt = mod["db"].body
-
+    print(mod.script())
     assert isinstance(stmt.body, tvm.tir.Allocate)
     assert list(stmt.body.extents) == [m * 2]
 

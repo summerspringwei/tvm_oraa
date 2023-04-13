@@ -575,6 +575,10 @@ def partition_from_scheduled_tir(prim_func, pass_cfg):
         mod = tvm.tir.transform.RemoveNoOp()(mod)
         return mod
 
+mod = partition_from_scheduled_tir(
+        concat_func_3, {"tir.LoopPartition": {"partition_const_loop": True}}
+    )
+
 
 @T.prim_func
 def partitioned_concat_3(
