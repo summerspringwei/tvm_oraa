@@ -1,0 +1,654 @@
+## 1.lower_cross_thread_reduction
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:453: before:
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  block([], "root") {
+    tir.reads([])
+    tir.writes([])
+    for (i0: int32, 0, 128) {
+      for (i1: int32, 0, 128) "thread_binding" {
+        block([128, tir.reduce_axis(0, 128)], "B") as [vi, vk] {
+          bind(vi, i0)
+          bind(vk, i1)
+          tir.reads([A[vi, vk]])
+          tir.writes([B[vi]])
+          with init() {
+            B[vi] = 0f32
+          }
+          B[vi] = (B[vi] + A[vi, vk])
+      }
+    }
+}
+
+
+
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.LowerCrossThreadReduction, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  block([], "root") {
+    tir.reads([])
+    tir.writes([])
+    cross_thread_B = alloc_buffer(float32[1])
+    for (i0: int32, 0, 128) {
+      for (i1: int32, 0, 128) "thread_binding" {
+        block([128, tir.reduce_axis(0, 128)], "B_cross_thread") as [vi, vk] {
+          bind(vi, i0)
+          bind(vk, i1)
+          tir.reads([A[vi, vk]])
+          tir.writes([cross_thread_B[0]])
+          attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+          @tir.tvm_thread_allreduce(1u32, A[vi, vk], True, cross_thread_B[0], i1, dtype=handle)
+        block([128], "B_write_back") as [vi_1] {
+          bind(vi_1, i0)
+          tir.reads([cross_thread_B[0]])
+          tir.writes([B[vi_1]])
+          B[vi_1] = cross_thread_B[0]
+      }
+    }
+}
+
+
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:453: before:
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  block([], "root") {
+    tir.reads([])
+    tir.writes([])
+    cross_thread_B = alloc_buffer(float32[1])
+    for (i0: int32, 0, 128) {
+      for (i1: int32, 0, 128) "thread_binding" {
+        block([128, tir.reduce_axis(0, 128)], "B_cross_thread") as [vi, vk] {
+          bind(vi, i0)
+          bind(vk, i1)
+          tir.reads([A[vi, vk]])
+          tir.writes([cross_thread_B[0]])
+          attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+          @tir.tvm_thread_allreduce(1u32, A[vi, vk], True, cross_thread_B[0], i1, dtype=handle)
+        block([128], "B_write_back") as [vi_1] {
+          bind(vi_1, i0)
+          tir.reads([cross_thread_B[0]])
+          tir.writes([B[vi_1]])
+          B[vi_1] = cross_thread_B[0]
+      }
+    }
+}
+
+
+## 2.PlanAndUpdateBufferAllocationLocation
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.PlanAndUpdateBufferAllocationLocation, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  block([], "root") {
+    tir.reads([])
+    tir.writes([])
+    for (i0: int32, 0, 128) {
+      for (i1: int32, 0, 128) "thread_binding" {
+        block([], "") {
+          tir.reads([A[i0, i1]])
+          tir.writes([B[i0]])
+          cross_thread_B = alloc_buffer(float32[1])
+           {
+            block([128, tir.reduce_axis(0, 128)], "B_cross_thread") as [vi, vk] {
+              bind(vi, i0)
+              bind(vk, i1)
+              tir.reads([A[vi, vk]])
+              tir.writes([cross_thread_B[0]])
+              attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+              @tir.tvm_thread_allreduce(1u32, A[vi, vk], True, cross_thread_B[0], i1, dtype=handle)
+            block([128], "B_write_back") as [vi_1] {
+              bind(vi_1, i0)
+              tir.reads([cross_thread_B[0]])
+              tir.writes([B[vi_1]])
+              B[vi_1] = cross_thread_B[0]
+          }
+      }
+    }
+}
+
+## 3.ConvertBlocksToOpaque
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.ConvertBlocksToOpaque, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  block([], "root") {
+    tir.reads([])
+    tir.writes([])
+    for (i0: int32, 0, 128) {
+      for (i1: int32, 0, 128) "thread_binding" {
+        block([], "") {
+          tir.reads([A[i0, i1]])
+          tir.writes([B[i0]])
+          cross_thread_B = alloc_buffer(float32[1])
+           {
+            block([], "B_cross_thread") {
+              tir.reads([A[i0, i1]])
+              tir.writes([cross_thread_B[0]])
+              attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+              @tir.tvm_thread_allreduce(1u32, A[i0, i1], True, cross_thread_B[0], i1, dtype=handle)
+            block([], "B_write_back") {
+              tir.reads([cross_thread_B[0]])
+              tir.writes([B[i0]])
+              B[i0] = cross_thread_B[0]
+          }
+      }
+    }
+}
+
+## 4.UnifyThreadBinding
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.UnifyThreadBinding, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  block([], "root") {
+    tir.reads([])
+    tir.writes([])
+    for (i0: int32, 0, 128) {
+      for (threadIdx.x: int32, 0, 128) "thread_binding" {
+        block([], "") {
+          tir.reads([A[i0, threadIdx.x]])
+          tir.writes([B[i0]])
+          cross_thread_B = alloc_buffer(float32[1])
+           {
+            block([], "B_cross_thread") {
+              tir.reads([A[i0, threadIdx.x]])
+              tir.writes([cross_thread_B[0]])
+              attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+              @tir.tvm_thread_allreduce(1u32, A[i0, threadIdx.x], True, cross_thread_B[0], threadIdx.x, dtype=handle)
+            block([], "B_write_back") {
+              tir.reads([cross_thread_B[0]])
+              tir.writes([B[i0]])
+              B[i0] = cross_thread_B[0]
+          }
+      }
+    }
+}
+
+## 5.LowerOpaqueBlock
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.LowerOpaqueBlock, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  for (i0: int32, 0, 128) {
+    attr [IterVar(threadIdx.x: int32, [0:128], "ThreadIndex", "threadIdx.x")] "thread_extent" = 128;
+    allocate(cross_thread_B: Pointer(local float32), float32, [1]), storage_scope = local;
+    cross_thread_B_1 = decl_buffer(cross_thread_B, float32, [1])
+     {
+      attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+      @tir.tvm_thread_allreduce(1u32, A[i0, threadIdx.x], True, cross_thread_B_1[0], threadIdx.x, dtype=handle)
+      B[i0] = cross_thread_B_1[0]
+    }
+  }
+}
+
+## 6.FlattenBuffer
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.FlattenBuffer, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main"}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  for (i0: int32, 0, 128) {
+    attr [IterVar(threadIdx.x: int32, [0:128], "ThreadIndex", "threadIdx.x")] "thread_extent" = 128;
+    allocate(cross_thread_B: Pointer(local float32), float32, [1]), storage_scope = local {
+      attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+      @tir.tvm_thread_allreduce(1u32, A_2: Buffer(A_1, float32, [16384], [])[((i0*128) + threadIdx.x)], True, cross_thread_B_1: Buffer(cross_thread_B, float32, [1], [], scope="local")[0], threadIdx.x, dtype=handle)
+      B_2: Buffer(B_1, float32, [128], [])[i0] = cross_thread_B_1[0]
+    }
+  }
+}
+
+
+## 7.BindTarget
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.BindTarget, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main", "target": Target(id=2ee3e10, kind='cuda', keys={'cuda', 'gpu'}, attrs={'thread_warp_size': 20, 'arch': "sm_80", 'max_num_threads': 400}, host=Target(id=2ee7350, kind='llvm', keys={'cpu'}))}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  for (i0: int32, 0, 128) {
+    attr [IterVar(threadIdx.x: int32, [0:128], "ThreadIndex", "threadIdx.x")] "thread_extent" = 128;
+    allocate(cross_thread_B: Pointer(local float32), float32, [1]), storage_scope = local {
+      attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+      @tir.tvm_thread_allreduce(1u32, A_2: Buffer(A_1, float32, [16384], [])[((i0*128) + threadIdx.x)], True, cross_thread_B_1: Buffer(cross_thread_B, float32, [1], [], scope="local")[0], threadIdx.x, dtype=handle)
+      B_2: Buffer(B_1, float32, [128], [])[i0] = cross_thread_B_1[0]
+    }
+  }
+}
+attributes {
+  'runtime' = (nullptr)
+}
+
+
+
+## 8.LowerThreadAllreduce
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.LowerThreadAllreduce, opt_level: 0, required passes: []
+@main = primfn(a: handle, b: handle) -> ()
+  attr = {"tir.noalias": True, "global_symbol": "main", "target": Target(id=2ee3e10, kind='cuda', keys={'cuda', 'gpu'}, attrs={'thread_warp_size': 20, 'arch': "sm_80", 'max_num_threads': 400}, host=Target(id=2ee7350, kind='llvm', keys={'cpu'})), "tir.is_entry_func": True}
+  buffers = {A: Buffer(A_1: Pointer(global float32), float32, [128, 128], []),
+             B: Buffer(B_1: Pointer(global float32), float32, [128], [])}
+  buffer_map = {a: A, b: B} {
+  for (i0: int32, 0, 128) {
+    attr [IterVar(threadIdx.x: int32, [0:128], "ThreadIndex", "threadIdx.x")] "thread_extent" = 128;
+    allocate(red_buf0: Pointer(shared float32), float32, [1, 128]), storage_scope = shared;
+    attr [red_buf0] "volatile_scope" = 1 {
+      attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle) {
+        @tir.tvm_storage_sync("shared", dtype=int32)
+        red_buf0_1: Buffer(red_buf0, float32, [1], [], scope="shared")[threadIdx.x] = A_2: Buffer(A_1, float32, [16384], [])[((i0*128) + threadIdx.x)]
+        @tir.tvm_storage_sync("shared", dtype=int32)
+        if (threadIdx.x < 64) {
+          red_buf0_1[threadIdx.x] = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 64)])
+        }
+        @tir.tvm_storage_sync("shared", dtype=int32)
+        if (threadIdx.x < 32) {
+          red_buf0_1[threadIdx.x] = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 32)])
+        }
+        @tir.tvm_storage_sync("shared", dtype=int32)
+        if (threadIdx.x < 16) {
+          let w_16_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 16)])
+           {
+            @tir.tvm_storage_sync("warp", dtype=int32)
+            red_buf0_1[threadIdx.x] = w_16_0
+            @tir.tvm_storage_sync("warp", dtype=int32)
+          }
+          let w_8_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 8)])
+           {
+            @tir.tvm_storage_sync("warp", dtype=int32)
+            red_buf0_1[threadIdx.x] = w_8_0
+            @tir.tvm_storage_sync("warp", dtype=int32)
+          }
+          let w_4_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 4)])
+           {
+            @tir.tvm_storage_sync("warp", dtype=int32)
+            red_buf0_1[threadIdx.x] = w_4_0
+            @tir.tvm_storage_sync("warp", dtype=int32)
+          }
+          let w_2_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 2)])
+           {
+            @tir.tvm_storage_sync("warp", dtype=int32)
+            red_buf0_1[threadIdx.x] = w_2_0
+            @tir.tvm_storage_sync("warp", dtype=int32)
+          }
+          let w_1_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 1)])
+           {
+            @tir.tvm_storage_sync("warp", dtype=int32)
+            red_buf0_1[threadIdx.x] = w_1_0
+            @tir.tvm_storage_sync("warp", dtype=int32)
+          }
+        }
+        @tir.tvm_storage_sync("shared", dtype=int32)
+      }
+      B_2: Buffer(B_1, float32, [128], [])[i0] = red_buf0_1[0]
+    }
+  }
+}
+attributes {
+  'runtime' = (nullptr)
+}
+
+
+## 9.MakePackedAPI
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:392: tir.MakePackedAPI: Result module:
+@main = primfn(args: handle, arg_type_ids: Pointer(int32), num_args: int32, out_ret_value: Pointer(), out_ret_tcode: Pointer(int32), resource_handle: handle) -> int32
+  attr = {"target": Target(id=2ee3e10, kind='cuda', keys={'cuda', 'gpu'}, attrs={'thread_warp_size': 20, 'arch': "sm_80", 'max_num_threads': 400}, host=Target(id=2ee7350, kind='llvm', keys={'cpu'})), "tir.noalias": True, "global_symbol": "main", "tir.is_entry_func": True, "calling_conv": 1} {
+  assert((num_args == 2), "main: num_args should be 2")
+  let arg.a: handle = @tir.tvm_struct_get(args, 0, 12, dtype=handle)
+  let arg.a.code: int32 = arg_type_ids_1: Buffer(arg_type_ids, int32, [2], [])[0]
+  let arg.b: handle = @tir.tvm_struct_get(args, 1, 12, dtype=handle)
+  let arg.b.code: int32 = arg_type_ids_1[1]
+  let A: Pointer(global float32) = @tir.tvm_struct_get(arg.a, 0, 1, dtype=handle)
+  attr [A] "storage_alignment" = 64;
+  let arg.a.shape: Pointer(int64) = @tir.tvm_struct_get(arg.a, 0, 2, dtype=handle)
+  let arg.a.strides: Pointer(int64) = @tir.tvm_struct_get(arg.a, 0, 3, dtype=handle)
+  let dev_id: int32 = @tir.tvm_struct_get(arg.a, 0, 9, dtype=int32)
+  let B: Pointer(global float32) = @tir.tvm_struct_get(arg.b, 0, 1, dtype=handle)
+  attr [B] "storage_alignment" = 64;
+  let arg.b.shape: Pointer(int64) = @tir.tvm_struct_get(arg.b, 0, 2, dtype=handle)
+  let arg.b.strides: Pointer(int64) = @tir.tvm_struct_get(arg.b, 0, 3, dtype=handle)
+  assert(((((arg.a.code == 3) || (arg.a.code == 13)) || (arg.a.code == 7)) || (arg.a.code == 4)), "main: Expect arg[0] to be pointer")
+  assert(((((arg.b.code == 3) || (arg.b.code == 13)) || (arg.b.code == 7)) || (arg.b.code == 4)), "main: Expect arg[1] to be pointer")
+  attr ["default"] "device_id" = dev_id;
+  attr ["default"] "device_type" = 2;
+  assert((2 == @tir.tvm_struct_get(arg.a, 0, 4, dtype=int32)), "arg.a.ndim is expected to equal 2")
+  assert((2 == @tir.tvm_struct_get(arg.a, 0, 4, dtype=int32)), "arg.a.ndim is expected to equal 2")
+  assert((((@tir.tvm_struct_get(arg.a, 0, 5, dtype=uint8) == 2u8) && (@tir.tvm_struct_get(arg.a, 0, 6, dtype=uint8) == 32u8)) && (@tir.tvm_struct_get(arg.a, 0, 7, dtype=uint16) == 1u16)), "arg.a.dtype is expected to be float32")
+  assert((cast(int32, arg.a.shape_1: Buffer(arg.a.shape, int64, [2], [])[0]) == 128), "Argument arg.a.shape[0] has an unsatisfied constraint: (128 == int32(arg.a.shape[0]))")
+  assert((cast(int32, arg.a.shape_1[1]) == 128), "Argument arg.a.shape[1] has an unsatisfied constraint: (128 == int32(arg.a.shape[1]))")
+   {
+    if !@tir.isnullptr(arg.a.strides, dtype=bool) {
+      assert(((1 == cast(int32, arg.a.strides_1: Buffer(arg.a.strides, int64, [0], [])[1])) && (128 == cast(int32, arg.a.strides_1[0]))), "arg.a.strides: expected to be compact array")
+      0
+    }
+    assert((0u64 == @tir.tvm_struct_get(arg.a, 0, 8, dtype=uint64)), "Argument arg.a.byte_offset has an unsatisfied constraint: ((uint64)0 == tir.tvm_struct_get(arg.a, 0, 8))")
+    assert((@tir.tvm_struct_get(arg.a, 0, 10, dtype=int32) == 2), "Argument arg.a.device_type has an unsatisfied constraint: (2 == tir.tvm_struct_get(arg.a, 0, 10))")
+    assert((1 == @tir.tvm_struct_get(arg.b, 0, 4, dtype=int32)), "arg.b.ndim is expected to equal 1")
+    assert((1 == @tir.tvm_struct_get(arg.b, 0, 4, dtype=int32)), "arg.b.ndim is expected to equal 1")
+    assert((((@tir.tvm_struct_get(arg.b, 0, 5, dtype=uint8) == 2u8) && (@tir.tvm_struct_get(arg.b, 0, 6, dtype=uint8) == 32u8)) && (@tir.tvm_struct_get(arg.b, 0, 7, dtype=uint16) == 1u16)), "arg.b.dtype is expected to be float32")
+    assert((cast(int32, arg.b.shape_1: Buffer(arg.b.shape, int64, [1], [])[0]) == 128), "Argument arg.b.shape[0] has an unsatisfied constraint: (128 == int32(arg.b.shape[0]))")
+     {
+      if !@tir.isnullptr(arg.b.strides, dtype=bool) {
+        assert((1 == cast(int32, arg.b.strides_1: Buffer(arg.b.strides, int64, [0], [])[0])), "arg.b.strides: expected to be compact array")
+        0
+      }
+      assert((0u64 == @tir.tvm_struct_get(arg.b, 0, 8, dtype=uint64)), "Argument arg.b.byte_offset has an unsatisfied constraint: ((uint64)0 == tir.tvm_struct_get(arg.b, 0, 8))")
+      assert((@tir.tvm_struct_get(arg.b, 0, 10, dtype=int32) == 2), "Argument arg.b.device_type has an unsatisfied constraint: (2 == tir.tvm_struct_get(arg.b, 0, 10))")
+      assert((dev_id == @tir.tvm_struct_get(arg.b, 0, 9, dtype=int32)), "Argument arg.b.device_id has an unsatisfied constraint: (dev_id == tir.tvm_struct_get(arg.b, 0, 9))")
+       {
+        @tir.tvm_call_packed("__tvm_set_device", 2, dev_id, dtype=int32)
+        attr [0] "compute_scope" = "main_compute_";
+        for (i0: int32, 0, 128) {
+          attr [IterVar(threadIdx.x: int32, [0:128], "ThreadIndex", "threadIdx.x")] "thread_extent" = 128;
+          allocate(red_buf0: Pointer(shared float32), float32, [1, 128]), storage_scope = shared;
+          attr [red_buf0] "volatile_scope" = 1 {
+            attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle) {
+              @tir.tvm_storage_sync("shared", dtype=int32)
+              red_buf0_1: Buffer(red_buf0, float32, [1], [], scope="shared")[threadIdx.x] = A_1: Buffer(A, float32, [16384], [])[((i0*128) + threadIdx.x)]
+              @tir.tvm_storage_sync("shared", dtype=int32)
+              if (threadIdx.x < 64) {
+                red_buf0_1[threadIdx.x] = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 64)])
+              }
+              @tir.tvm_storage_sync("shared", dtype=int32)
+              if (threadIdx.x < 32) {
+                red_buf0_1[threadIdx.x] = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 32)])
+              }
+              @tir.tvm_storage_sync("shared", dtype=int32)
+              if (threadIdx.x < 16) {
+                let w_16_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 16)])
+                 {
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                  red_buf0_1[threadIdx.x] = w_16_0
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                }
+                let w_8_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 8)])
+                 {
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                  red_buf0_1[threadIdx.x] = w_8_0
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                }
+                let w_4_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 4)])
+                 {
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                  red_buf0_1[threadIdx.x] = w_4_0
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                }
+                let w_2_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 2)])
+                 {
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                  red_buf0_1[threadIdx.x] = w_2_0
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                }
+                let w_1_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 1)])
+                 {
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                  red_buf0_1[threadIdx.x] = w_1_0
+                  @tir.tvm_storage_sync("warp", dtype=int32)
+                }
+              }
+              @tir.tvm_storage_sync("shared", dtype=int32)
+            }
+            B_1: Buffer(B, float32, [128], [])[i0] = red_buf0_1[0]
+          }
+        }
+      }
+    }
+  }
+}
+attributes {
+  'runtime' = (nullptr)
+}
+
+
+## 10.SplitHostDevice
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:392: tir.SplitHostDevice: Result module:
+@main = primfn(args: handle, arg_type_ids: Pointer(int32), num_args: int32, out_ret_value: Pointer(), out_ret_tcode: Pointer(int32), resource_handle: handle) -> int32
+  attr = {"target": (nullptr), "tir.noalias": True, "global_symbol": "main", "tir.is_entry_func": True, "calling_conv": 1} {
+  assert((num_args == 2), "main: num_args should be 2")
+  let arg.a: handle = @tir.tvm_struct_get(args, 0, 12, dtype=handle)
+  let arg.a.code: int32 = arg_type_ids_1: Buffer(arg_type_ids, int32, [2], [])[0]
+  let arg.b: handle = @tir.tvm_struct_get(args, 1, 12, dtype=handle)
+  let arg.b.code: int32 = arg_type_ids_1[1]
+  let A: Pointer(global float32) = @tir.tvm_struct_get(arg.a, 0, 1, dtype=handle)
+  attr [A] "storage_alignment" = 64;
+  let arg.a.shape: Pointer(int64) = @tir.tvm_struct_get(arg.a, 0, 2, dtype=handle)
+  let arg.a.strides: Pointer(int64) = @tir.tvm_struct_get(arg.a, 0, 3, dtype=handle)
+  let dev_id: int32 = @tir.tvm_struct_get(arg.a, 0, 9, dtype=int32)
+  let B: Pointer(global float32) = @tir.tvm_struct_get(arg.b, 0, 1, dtype=handle)
+  attr [B] "storage_alignment" = 64;
+  let arg.b.shape: Pointer(int64) = @tir.tvm_struct_get(arg.b, 0, 2, dtype=handle)
+  let arg.b.strides: Pointer(int64) = @tir.tvm_struct_get(arg.b, 0, 3, dtype=handle)
+  assert(((((arg.a.code == 3) || (arg.a.code == 13)) || (arg.a.code == 7)) || (arg.a.code == 4)), "main: Expect arg[0] to be pointer")
+  assert(((((arg.b.code == 3) || (arg.b.code == 13)) || (arg.b.code == 7)) || (arg.b.code == 4)), "main: Expect arg[1] to be pointer")
+  attr ["default"] "device_id" = dev_id;
+  attr ["default"] "device_type" = 2;
+  assert((2 == @tir.tvm_struct_get(arg.a, 0, 4, dtype=int32)), "arg.a.ndim is expected to equal 2")
+  assert((2 == @tir.tvm_struct_get(arg.a, 0, 4, dtype=int32)), "arg.a.ndim is expected to equal 2")
+  assert((((@tir.tvm_struct_get(arg.a, 0, 5, dtype=uint8) == 2u8) && (@tir.tvm_struct_get(arg.a, 0, 6, dtype=uint8) == 32u8)) && (@tir.tvm_struct_get(arg.a, 0, 7, dtype=uint16) == 1u16)), "arg.a.dtype is expected to be float32")
+  assert((cast(int32, arg.a.shape_1: Buffer(arg.a.shape, int64, [2], [])[0]) == 128), "Argument arg.a.shape[0] has an unsatisfied constraint: (128 == int32(arg.a.shape[0]))")
+  assert((cast(int32, arg.a.shape_1[1]) == 128), "Argument arg.a.shape[1] has an unsatisfied constraint: (128 == int32(arg.a.shape[1]))")
+   {
+    if !@tir.isnullptr(arg.a.strides, dtype=bool) {
+      assert(((1 == cast(int32, arg.a.strides_1: Buffer(arg.a.strides, int64, [0], [])[1])) && (128 == cast(int32, arg.a.strides_1[0]))), "arg.a.strides: expected to be compact array")
+      0
+    }
+    assert((0u64 == @tir.tvm_struct_get(arg.a, 0, 8, dtype=uint64)), "Argument arg.a.byte_offset has an unsatisfied constraint: ((uint64)0 == tir.tvm_struct_get(arg.a, 0, 8))")
+    assert((@tir.tvm_struct_get(arg.a, 0, 10, dtype=int32) == 2), "Argument arg.a.device_type has an unsatisfied constraint: (2 == tir.tvm_struct_get(arg.a, 0, 10))")
+    assert((1 == @tir.tvm_struct_get(arg.b, 0, 4, dtype=int32)), "arg.b.ndim is expected to equal 1")
+    assert((1 == @tir.tvm_struct_get(arg.b, 0, 4, dtype=int32)), "arg.b.ndim is expected to equal 1")
+    assert((((@tir.tvm_struct_get(arg.b, 0, 5, dtype=uint8) == 2u8) && (@tir.tvm_struct_get(arg.b, 0, 6, dtype=uint8) == 32u8)) && (@tir.tvm_struct_get(arg.b, 0, 7, dtype=uint16) == 1u16)), "arg.b.dtype is expected to be float32")
+    assert((cast(int32, arg.b.shape_1: Buffer(arg.b.shape, int64, [1], [])[0]) == 128), "Argument arg.b.shape[0] has an unsatisfied constraint: (128 == int32(arg.b.shape[0]))")
+     {
+      if !@tir.isnullptr(arg.b.strides, dtype=bool) {
+        assert((1 == cast(int32, arg.b.strides_1: Buffer(arg.b.strides, int64, [0], [])[0])), "arg.b.strides: expected to be compact array")
+        0
+      }
+      assert((0u64 == @tir.tvm_struct_get(arg.b, 0, 8, dtype=uint64)), "Argument arg.b.byte_offset has an unsatisfied constraint: ((uint64)0 == tir.tvm_struct_get(arg.b, 0, 8))")
+      assert((@tir.tvm_struct_get(arg.b, 0, 10, dtype=int32) == 2), "Argument arg.b.device_type has an unsatisfied constraint: (2 == tir.tvm_struct_get(arg.b, 0, 10))")
+      assert((dev_id == @tir.tvm_struct_get(arg.b, 0, 9, dtype=int32)), "Argument arg.b.device_id has an unsatisfied constraint: (dev_id == tir.tvm_struct_get(arg.b, 0, 9))")
+       {
+        @tir.tvm_call_packed("__tvm_set_device", 2, dev_id, dtype=int32)
+        attr [0] "compute_scope" = "main_compute_";
+        for (i0: int32, 0, 128) {
+          @tir.tvm_call_packed("main_kernel0", A, B, i0, 128, dtype=int32)
+        }
+      }
+    }
+  }
+}
+
+@main_kernel0 = primfn(A_1: Pointer(global float32), B_1: Pointer(global float32), i0_1: int32) -> ()
+  attr = {"target": Target(id=2ee3e10, kind='cuda', keys={'cuda', 'gpu'}, attrs={'thread_warp_size': 20, 'arch': "sm_80", 'max_num_threads': 400}, host=Target(id=2ee7350, kind='llvm', keys={'cpu'})), "tir.noalias": 1, "global_symbol": "main_kernel0", "tir.device_thread_axis": [IterVar(threadIdx.x: int32, [0:128], "ThreadIndex", "threadIdx.x")], "tir.is_global_func": 1, "calling_conv": 2} {
+  attr [IterVar(threadIdx.x, [0:128], "ThreadIndex", "threadIdx.x")] "thread_extent" = 128;
+  allocate(red_buf0: Pointer(shared float32), float32, [1, 128]), storage_scope = shared;
+  attr [red_buf0] "volatile_scope" = 1 {
+    attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle) {
+      @tir.tvm_storage_sync("shared", dtype=int32)
+      red_buf0_1: Buffer(red_buf0, float32, [1], [], scope="shared")[threadIdx.x] = A_2: Buffer(A_1, float32, [16384], [])[((i0_1*128) + threadIdx.x)]
+      @tir.tvm_storage_sync("shared", dtype=int32)
+      if (threadIdx.x < 64) {
+        red_buf0_1[threadIdx.x] = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 64)])
+      }
+      @tir.tvm_storage_sync("shared", dtype=int32)
+      if (threadIdx.x < 32) {
+        red_buf0_1[threadIdx.x] = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 32)])
+      }
+      @tir.tvm_storage_sync("shared", dtype=int32)
+      if (threadIdx.x < 16) {
+        let w_16_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 16)])
+         {
+          @tir.tvm_storage_sync("warp", dtype=int32)
+          red_buf0_1[threadIdx.x] = w_16_0
+          @tir.tvm_storage_sync("warp", dtype=int32)
+        }
+        let w_8_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 8)])
+         {
+          @tir.tvm_storage_sync("warp", dtype=int32)
+          red_buf0_1[threadIdx.x] = w_8_0
+          @tir.tvm_storage_sync("warp", dtype=int32)
+        }
+        let w_4_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 4)])
+         {
+          @tir.tvm_storage_sync("warp", dtype=int32)
+          red_buf0_1[threadIdx.x] = w_4_0
+          @tir.tvm_storage_sync("warp", dtype=int32)
+        }
+        let w_2_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 2)])
+         {
+          @tir.tvm_storage_sync("warp", dtype=int32)
+          red_buf0_1[threadIdx.x] = w_2_0
+          @tir.tvm_storage_sync("warp", dtype=int32)
+        }
+        let w_1_0: float32 = (red_buf0_1[threadIdx.x] + red_buf0_1[(threadIdx.x + 1)])
+         {
+          @tir.tvm_storage_sync("warp", dtype=int32)
+          red_buf0_1[threadIdx.x] = w_1_0
+          @tir.tvm_storage_sync("warp", dtype=int32)
+        }
+      }
+      @tir.tvm_storage_sync("shared", dtype=int32)
+    }
+    B_2: Buffer(B_1, float32, [128], [])[i0_1] = red_buf0_1[0]
+  }
+}
+attributes {
+  'runtime' = (nullptr)
+}
+
+
+
+## 11.CUDA code
+
+[18:06:02] /home/zhangshuoming/workspace/intel_tvm/src/ir/transform.cc:456: The meta data of the pass - pass name: tir.CombineContextCall, opt_level: 0, required passes: []
+@main = primfn(args: handle, arg_type_ids: Pointer(int32), num_args: int32, out_ret_value: Pointer(), out_ret_tcode: Pointer(int32), resource_handle: handle) -> int32
+  attr = {"target": Target(id=2ee7350, kind='llvm', keys={'cpu'}), "tir.noalias": True, "global_symbol": "main", "tir.is_entry_func": True, "calling_conv": 1} {
+  let stack_tcode: Pointer(int32) = @tir.tvm_stack_alloca("arg_tcode", 5, dtype=handle)
+  let stack_value: handle = @tir.tvm_stack_alloca("arg_value", 5, dtype=handle)
+  assert((num_args == 2), "main: num_args should be 2")
+  let arg.a: handle = @tir.tvm_struct_get(args, 0, 12, dtype=handle)
+  let arg.a.code: int32 = arg_type_ids_1: Buffer(arg_type_ids, int32, [2], [])[0]
+  let arg.b: handle = @tir.tvm_struct_get(args, 1, 12, dtype=handle)
+  let arg.b.code: int32 = arg_type_ids_1[1]
+  let A: Pointer(global float32) = @tir.tvm_struct_get(arg.a, 0, 1, dtype=handle)
+  attr [A] "storage_alignment" = 64;
+  let arg.a.shape: Pointer(int64) = @tir.tvm_struct_get(arg.a, 0, 2, dtype=handle)
+  let arg.a.strides: Pointer(int64) = @tir.tvm_struct_get(arg.a, 0, 3, dtype=handle)
+  let dev_id: int32 = @tir.tvm_struct_get(arg.a, 0, 9, dtype=int32)
+  let B: Pointer(global float32) = @tir.tvm_struct_get(arg.b, 0, 1, dtype=handle)
+  attr [B] "storage_alignment" = 64;
+  let arg.b.shape: Pointer(int64) = @tir.tvm_struct_get(arg.b, 0, 2, dtype=handle)
+  let arg.b.strides: Pointer(int64) = @tir.tvm_struct_get(arg.b, 0, 3, dtype=handle)
+  assert(((((arg.a.code == 3) || (arg.a.code == 13)) || (arg.a.code == 7)) || (arg.a.code == 4)), "main: Expect arg[0] to be pointer")
+  assert(((((arg.b.code == 3) || (arg.b.code == 13)) || (arg.b.code == 7)) || (arg.b.code == 4)), "main: Expect arg[1] to be pointer")
+  assert((2 == @tir.tvm_struct_get(arg.a, 0, 4, dtype=int32)), "arg.a.ndim is expected to equal 2")
+  assert((2 == @tir.tvm_struct_get(arg.a, 0, 4, dtype=int32)), "arg.a.ndim is expected to equal 2")
+  assert((((@tir.tvm_struct_get(arg.a, 0, 5, dtype=uint8) == 2u8) && (@tir.tvm_struct_get(arg.a, 0, 6, dtype=uint8) == 32u8)) && (@tir.tvm_struct_get(arg.a, 0, 7, dtype=uint16) == 1u16)), "arg.a.dtype is expected to be float32")
+  assert((cast(int32, arg.a.shape_1: Buffer(arg.a.shape, int64, [2], [])[0]) == 128), "Argument arg.a.shape[0] has an unsatisfied constraint: (128 == int32(arg.a.shape[0]))")
+  assert((cast(int32, arg.a.shape_1[1]) == 128), "Argument arg.a.shape[1] has an unsatisfied constraint: (128 == int32(arg.a.shape[1]))")
+   {
+    if !@tir.isnullptr(arg.a.strides, dtype=bool) {
+      assert(((1 == cast(int32, arg.a.strides_1: Buffer(arg.a.strides, int64, [0], [])[1])) && (128 == cast(int32, arg.a.strides_1[0]))), "arg.a.strides: expected to be compact array")
+      0
+    }
+    assert((0u64 == @tir.tvm_struct_get(arg.a, 0, 8, dtype=uint64)), "Argument arg.a.byte_offset has an unsatisfied constraint: ((uint64)0 == tir.tvm_struct_get(arg.a, 0, 8))")
+    assert((@tir.tvm_struct_get(arg.a, 0, 10, dtype=int32) == 2), "Argument arg.a.device_type has an unsatisfied constraint: (2 == tir.tvm_struct_get(arg.a, 0, 10))")
+    assert((1 == @tir.tvm_struct_get(arg.b, 0, 4, dtype=int32)), "arg.b.ndim is expected to equal 1")
+    assert((1 == @tir.tvm_struct_get(arg.b, 0, 4, dtype=int32)), "arg.b.ndim is expected to equal 1")
+    assert((((@tir.tvm_struct_get(arg.b, 0, 5, dtype=uint8) == 2u8) && (@tir.tvm_struct_get(arg.b, 0, 6, dtype=uint8) == 32u8)) && (@tir.tvm_struct_get(arg.b, 0, 7, dtype=uint16) == 1u16)), "arg.b.dtype is expected to be float32")
+    assert((cast(int32, arg.b.shape_1: Buffer(arg.b.shape, int64, [1], [])[0]) == 128), "Argument arg.b.shape[0] has an unsatisfied constraint: (128 == int32(arg.b.shape[0]))")
+     {
+      if !@tir.isnullptr(arg.b.strides, dtype=bool) {
+        assert((1 == cast(int32, arg.b.strides_1: Buffer(arg.b.strides, int64, [0], [])[0])), "arg.b.strides: expected to be compact array")
+        0
+      }
+      assert((0u64 == @tir.tvm_struct_get(arg.b, 0, 8, dtype=uint64)), "Argument arg.b.byte_offset has an unsatisfied constraint: ((uint64)0 == tir.tvm_struct_get(arg.b, 0, 8))")
+      assert((@tir.tvm_struct_get(arg.b, 0, 10, dtype=int32) == 2), "Argument arg.b.device_type has an unsatisfied constraint: (2 == tir.tvm_struct_get(arg.b, 0, 10))")
+      assert((dev_id == @tir.tvm_struct_get(arg.b, 0, 9, dtype=int32)), "Argument arg.b.device_id has an unsatisfied constraint: (dev_id == tir.tvm_struct_get(arg.b, 0, 9))")
+       {
+         {
+          @tir.tvm_struct_set(stack_value, 0, 12, cast(int64, 2), dtype=int32)
+          stack_tcode_1: Buffer(stack_tcode, int32, [5u64], [])[0] = 0
+          @tir.tvm_struct_set(stack_value, 1, 12, cast(int64, dev_id), dtype=int32)
+          stack_tcode_1[1] = 0
+          @tir.tvm_call_packed_lowered("__tvm_set_device", stack_value, stack_tcode, 0, 2, dtype=int32)
+        }
+        attr [0] "compute_scope" = "main_compute_";
+        for (i0: int32, 0, 128) {
+          @tir.tvm_struct_set(stack_value, 0, 12, A, dtype=int32)
+          stack_tcode_1[0] = 3
+          @tir.tvm_struct_set(stack_value, 1, 12, B, dtype=int32)
+          stack_tcode_1[1] = 3
+          @tir.tvm_struct_set(stack_value, 2, 12, cast(int64, i0), dtype=int32)
+          stack_tcode_1[2] = 0
+          @tir.tvm_struct_set(stack_value, 3, 12, cast(int64, 128), dtype=int32)
+          stack_tcode_1[3] = 0
+          @tir.tvm_call_packed_lowered("main_kernel0", stack_value, stack_tcode, 0, 4, dtype=int32)
+        }
+      }
+    }
+  }
+}
+attributes {
+  'runtime' = (nullptr)
+}
+
+
+
+
+
+#ifdef _WIN32
+  using uint = unsigned int;
+  using uchar = unsigned char;
+  using ushort = unsigned short;
+  using int64_t = long long;
+  using uint64_t = unsigned long long;
+#else
+  #define uint unsigned int
+  #define uchar unsigned char
+  #define ushort unsigned short
+  #define int64_t long long
+  #define uint64_t unsigned long long
+#endif
+extern "C" __global__ void __launch_bounds__(128) main_kernel0(float* __restrict__ A, float* __restrict__ B, int i0) {
+  __shared__ float red_buf0[128];
+  __syncthreads();
+  ((volatile float*)red_buf0)[threadIdx.x] = A[((i0 * 128) + threadIdx.x)];
+  __syncthreads();
+  if (threadIdx.x < 64) {
+    ((volatile float*)red_buf0)[threadIdx.x] = (((volatile float*)red_buf0)[threadIdx.x] + ((volatile float*)red_buf0)[(threadIdx.x + 64)]);
+  }
+  __syncthreads();
+  if (threadIdx.x < 32) {
+    ((volatile float*)red_buf0)[threadIdx.x] = (((volatile float*)red_buf0)[threadIdx.x] + ((volatile float*)red_buf0)[(threadIdx.x + 32)]);
+  }
+  __syncthreads();
+  if (threadIdx.x < 16) {
+    float w_16_0 = (((volatile float*)red_buf0)[threadIdx.x] + ((volatile float*)red_buf0)[(threadIdx.x + 16)]);
+    ((volatile float*)red_buf0)[threadIdx.x] = w_16_0;
+    float w_8_0 = (((volatile float*)red_buf0)[threadIdx.x] + ((volatile float*)red_buf0)[(threadIdx.x + 8)]);
+    ((volatile float*)red_buf0)[threadIdx.x] = w_8_0;
+    float w_4_0 = (((volatile float*)red_buf0)[threadIdx.x] + ((volatile float*)red_buf0)[(threadIdx.x + 4)]);
+    ((volatile float*)red_buf0)[threadIdx.x] = w_4_0;
+    float w_2_0 = (((volatile float*)red_buf0)[threadIdx.x] + ((volatile float*)red_buf0)[(threadIdx.x + 2)]);
+    ((volatile float*)red_buf0)[threadIdx.x] = w_2_0;
+    float w_1_0 = (((volatile float*)red_buf0)[threadIdx.x] + ((volatile float*)red_buf0)[(threadIdx.x + 1)]);
+    ((volatile float*)red_buf0)[threadIdx.x] = w_1_0;
+  }
+  __syncthreads();
+  B[i0] = ((volatile float*)red_buf0)[0];
+}
