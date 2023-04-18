@@ -32,6 +32,7 @@ class ORAAModuleNode : public runtime::ModuleNode {
   // function information table.
   std::unordered_map<std::string, FunctionInfo> fmap_;
   // The cuda source.
+  // which contains several/one function(s)
   std::string cuda_source_;
 };
 
@@ -39,6 +40,31 @@ PackedFunc ORAAModuleNode::GetFunction(const std::string& name,
                                        const ObjectPtr<Object>& sptr_to_self) {
   return PackedFunc();
 }
+
+class ORAAWarppedFunc {
+  public:
+  // initialize the ORAA function.
+  void Init(ORAAModuleNode* m, ObjectPtr<Object> sptr, const std::string& func_name){
+    m_ = m;
+    sptr_ = sptr;
+    func_name_ = func_name;
+  }
+  // invoke the function with void arguments
+  void operator()(TVMArgs args, TVMRetValue* rv, void** void_args) const {
+    using tvm::runtime::Registry;
+    if (const auto* f = Registry::Get("tvm_callback_oraa_compile")) {
+      (*f)(m_->GetSource("py"));
+    }
+  }
+  private:
+  // internal module
+  ORAAModuleNode* m_;
+  // the resource holder
+  ObjectPtr<Object> sptr_;
+  // The name of the function.
+  std::string func_name_;
+};
+
 
 Module ORAAModuleCreate(std::string data, std::string fmt,
                         std::unordered_map<std::string, FunctionInfo> fmap,

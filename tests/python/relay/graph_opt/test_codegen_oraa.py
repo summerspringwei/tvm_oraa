@@ -10,6 +10,7 @@ from tvm.relay.backend.contrib.oraa import op
 from tvm.relay.backend.contrib.oraa.topi import pixel_shuffle_cuda
 from tvm.relay.backend.contrib.oraa.tir.tensor_intrin import oraa_cuda
 from tvm.script import tir as T
+import numpy as np
 
 
 def test_tensorize_oraa_pixel_shuffle(input_shape: list):
@@ -143,6 +144,10 @@ def test_tensorize_oraa_add(input_shape):
     func = tvm.build(sch.mod, [a, b], target=target)
     print(func)
     print(func.imported_modules[0].get_source())
+    a_data = tvm.nd.array(np.ones(input_shape,dtype="int8"), device=tvm.cuda(0))
+    b_data = tvm.nd.array(np.ones(input_shape,dtype="int8"), device=tvm.cuda(0))
+    c_data = tvm.nd.array(np.zeros(input_shape,dtype="int8"), device=tvm.cuda(0))
+    func(a_data,b_data,c_data)
 
 
 def test_tensorize_oraa_sub(input_shape):
@@ -276,4 +281,4 @@ if __name__ == "__main__":
     # test_tensorize_oraa_pixel_unshuffle((2, 8, 4, 4))
     # test_tensorize_oraa_add4((2, 16, 8, 8))
     test_tensorize_oraa_add((2, 16, 8, 8))
-    test_tensorize_oraa_sub((2, 16, 8, 8))
+    # test_tensorize_oraa_sub((2, 16, 8, 8))

@@ -594,7 +594,7 @@ void CodeGenORAA::VisitStmt_(const AssertStmtNode* op) {
     // GLOG style check
     stream << "ICHECK(" << cond << ") << \"" << str->value << "\";\n";
   } else {
-    stream << "assert(" << cond << ");\n";
+    stream << "assert(" << cond << ")\n";
   }
   this->PrintStmt(op->body);
 }
@@ -624,9 +624,9 @@ void CodeGenORAA::VisitStmt_(const IfThenElseNode* op) {
   std::string cond = PrintExpr(op->condition);
   PrintIndent();
   if (cond[0] == '(' && cond[cond.length() - 1] == ')') {
-    stream << "if " << cond << " {\n";
+    stream << "if " << cond << " :\n";
   } else {
-    stream << "if (" << cond << ") {\n";
+    stream << "if (" << cond << ") :\n";
   }
   int then_scope = BeginScope();
   PrintStmt(op->then_case);
@@ -634,13 +634,13 @@ void CodeGenORAA::VisitStmt_(const IfThenElseNode* op) {
 
   if (op->else_case) {
     PrintIndent();
-    stream << "} else {\n";
+    stream << "else :\n";
     int else_scope = BeginScope();
     PrintStmt(op->else_case.value());
     this->EndScope(else_scope);
   }
   PrintIndent();
-  stream << "}\n";
+  stream << "\n";
 }
 
 void CodeGenORAA::VisitStmt_(const SeqStmtNode* op) {

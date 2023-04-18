@@ -24,6 +24,11 @@ runtime::Module BuildORAA(IRModule mod, Target target) {
   }
   std::string code = cg.Finish();
   VLOG(0) << code;
+  // if (const auto* f = Registry::Get("tvm_callback_oraa_compile")) {
+  //   (*f)(code);
+  // } else {
+  //   LOG(FATAL) << "Cannot find registered ORAA code execution function";
+  // }  
   return ORAAModuleCreate("", "", ExtractFuncInfo(mod), code);
 }
 

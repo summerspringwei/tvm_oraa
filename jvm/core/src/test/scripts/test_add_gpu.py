@@ -19,6 +19,7 @@ import os
 import tvm
 from tvm import te
 from tvm.contrib import cc, utils, nvcc
+import numpy as np
 
 
 @tvm.register_func("tvm_callback_cuda_compile", override=True)
@@ -48,11 +49,17 @@ def test_add(target_dir):
     cc.create_shared(
         os.path.join(target_dir, "add_cuda.so"), [os.path.join(target_dir, "add_cuda.o")]
     )
+    a = tvm.nd.array(np.ones((10,),dtype="float32"))
+    b = tvm.nd.array(np.ones((10,),dtype="float32"))
+    c = tvm.nd.array(np.zeros((10,),dtype="float32"))
+    fadd_cuda(a,b,c)
+    print(c)
+    
 
 
 if __name__ == "__main__":
     import sys
-
-    if len(sys.argv) != 2:
-        sys.exit(-1)
-    test_add(sys.argv[1])
+    test_add("./parts")
+    # if len(sys.argv) != 2:
+    #     sys.exit(-1)
+    # test_add(sys.argv[1])
