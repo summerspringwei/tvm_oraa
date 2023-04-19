@@ -1,13 +1,10 @@
-
 #include "oraa_module.h"
-
 #include <tvm/runtime/registry.h>
-
 #include <string>
+#include "../pack_args.h"
 
 namespace tvm {
 namespace runtime {
-
 class ORAAModuleNode : public runtime::ModuleNode {
  public:
   explicit ORAAModuleNode(std::string data, std::string fmt,
@@ -24,6 +21,7 @@ class ORAAModuleNode : public runtime::ModuleNode {
     }
     return "oraa_module.cc: Source code empty!";
   }
+
  private:
   // the binary data
   std::string data_;
@@ -36,15 +34,10 @@ class ORAAModuleNode : public runtime::ModuleNode {
   std::string cuda_source_;
 };
 
-PackedFunc ORAAModuleNode::GetFunction(const std::string& name,
-                                       const ObjectPtr<Object>& sptr_to_self) {
-  return PackedFunc();
-}
-
 class ORAAWarppedFunc {
-  public:
+ public:
   // initialize the ORAA function.
-  void Init(ORAAModuleNode* m, ObjectPtr<Object> sptr, const std::string& func_name){
+  void Init(ORAAModuleNode* m, ObjectPtr<Object> sptr, const std::string& func_name) {
     m_ = m;
     sptr_ = sptr;
     func_name_ = func_name;
@@ -56,7 +49,8 @@ class ORAAWarppedFunc {
       (*f)(m_->GetSource("py"));
     }
   }
-  private:
+
+ private:
   // internal module
   ORAAModuleNode* m_;
   // the resource holder
@@ -65,14 +59,21 @@ class ORAAWarppedFunc {
   std::string func_name_;
 };
 
+PackedFunc ORAAModuleNode::GetFunction(const std::string& name,
+                                       const ObjectPtr<Object>& sptr_to_self) {
+  ORAAWarppedFunc f;
+  f.Init(this,sptr_to_self,name);
+  return PackFuncVoidAddr(f, std::vector<DLDataType>());
+  // return PackedFunc();
+}
+
 
 Module ORAAModuleCreate(std::string data, std::string fmt,
                         std::unordered_map<std::string, FunctionInfo> fmap,
-                        std::string cuda_source){
+                        std::string cuda_source) {
   auto n = make_object<ORAAModuleNode>(data, fmt, fmap, cuda_source);
   return Module(n);
 }
-
 
 }  // namespace runtime
 }  // namespace tvm

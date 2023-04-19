@@ -166,6 +166,8 @@ bool RuntimeEnabled(const std::string& target) {
     const PackedFunc* pf = runtime::Registry::Get("codegen.llvm_target_enabled");
     if (pf == nullptr) return false;
     return (*pf)(target);
+  } else if (target.length() >= 4 && target.substr(0, 4) == "oraa") {
+    f_name = "device_api.oraa";
   } else {
     LOG(FATAL) << "Unknown optional runtime " << target;
   }

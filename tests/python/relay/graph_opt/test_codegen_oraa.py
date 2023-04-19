@@ -144,9 +144,9 @@ def test_tensorize_oraa_add(input_shape):
     func = tvm.build(sch.mod, [a, b], target=target)
     print(func)
     print(func.imported_modules[0].get_source())
-    a_data = tvm.nd.array(np.ones(input_shape,dtype="int8"), device=tvm.cuda(0))
-    b_data = tvm.nd.array(np.ones(input_shape,dtype="int8"), device=tvm.cuda(0))
-    c_data = tvm.nd.array(np.zeros(input_shape,dtype="int8"), device=tvm.cuda(0))
+    a_data = tvm.nd.array(np.ones(input_shape,dtype="int8"),device=tvm.oraa())
+    b_data = tvm.nd.array(np.ones(input_shape,dtype="int8"),device=tvm.oraa())
+    c_data = tvm.nd.array(np.zeros(input_shape,dtype="int8"),device=tvm.oraa())
     func(a_data,b_data,c_data)
 
 
