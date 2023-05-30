@@ -250,6 +250,8 @@ def tune_relay(
     seed: Optional[int] = None,
     module_equality: str = "structural",
     num_tuning_cores: Union[Literal["physical", "logical"], int] = "physical",
+    path_to_trained_cost_model: str = None,
+    path_to_save_cost_model: str = None
 ) -> Database:
     """Tune a Relay program.
 
@@ -299,6 +301,10 @@ def tune_relay(
                             For the definition of the anchor block, see tir/analysis/analysis.py.
     num_tuning_cores : Union[Literal["physical", "logical"], int]
         The number of CPU cores to use during tuning.
+    path_to_trained_model: str
+        The trained cost model to load. For now only support XGBoost
+    path_to_save_cost_model: str
+        Path to save the cost model for further use.
 
     Returns
     -------
@@ -327,6 +333,8 @@ def tune_relay(
         measure_callbacks=measure_callbacks,
         task_scheduler=task_scheduler,
         module_equality=module_equality,
+        path_to_trained_cost_model=path_to_trained_cost_model,
+        path_to_save_cost_model=path_to_save_cost_model
     )
 
 

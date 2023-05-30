@@ -24,6 +24,7 @@
 #include <tvm/runtime/registry.h>
 #include <tvm/tir/function.h>
 #include <tvm/tir/op.h>
+#include <tvm/runtime/logging.h>
 
 namespace tvm {
 namespace tir {
@@ -59,7 +60,7 @@ TVM_REGISTER_NODE_TYPE(PrimFuncNode);
 class TensorIntrinManager {
  public:
   Map<String, tir::TensorIntrin> reg;
-
+  
   static TensorIntrinManager* Global() {
     static TensorIntrinManager* inst = new TensorIntrinManager();
     return inst;
@@ -96,6 +97,7 @@ void TensorIntrin::Register(String name, TensorIntrin intrin, bool override) {
 
 Optional<TensorIntrin> TensorIntrin::Get(String name, bool allow_missing) {
   const TensorIntrinManager* manager = TensorIntrinManager::Global();
+  
   auto it = manager->reg.find(name);
   if (it == manager->reg.end()) {
     if (allow_missing) {
