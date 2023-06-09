@@ -314,6 +314,10 @@ class FieldDependencyFinder : public AttrVisitor {
 
   std::string GetValue(const char* key) const {
     auto it = jnode_->attrs.find(key);
+    // By default we return cuda
+    if((it == jnode_->attrs.end()) && (strcmp("default_device_type", key) == 0)){
+      return std::string("2");
+    }
     if (it == jnode_->attrs.end()) {
       LOG(FATAL) << "JSONReader: cannot find field " << key;
     }
@@ -338,6 +342,10 @@ class FieldDependencyFinder : public AttrVisitor {
   void Visit(const char* key, runtime::NDArray* value) final {}
   void Visit(const char* key, ObjectRef* value) final {
     size_t index;
+    if(strcmp("features", key)==0){
+      *value = Map<String, ObjectRef>();
+      return ;
+    }
     ParseValue(key, &index);
     jnode_->fields.push_back(index);
   }
@@ -371,6 +379,9 @@ class JSONAttrSetter : public AttrVisitor {
 
   std::string GetValue(const char* key) const {
     auto it = jnode_->attrs.find(key);
+    if(strcmp("default_device_type", key)==0){
+      return std::string("2");
+    }
     if (it == jnode_->attrs.end()) {
       LOG(FATAL) << "JSONReader: cannot find field " << key;
     }
@@ -419,6 +430,10 @@ class JSONAttrSetter : public AttrVisitor {
     *value = tensor_list_->at(index);
   }
   void Visit(const char* key, ObjectRef* value) final {
+    if(strcmp("features", key)==0){
+      *value = Map<String, ObjectRef>();
+      return ;
+    }
     size_t index;
     ParseValue(key, &index);
     ICHECK_LE(index, node_list_->size());
@@ -546,14 +561,18 @@ struct JSONGraph {
     }
     for (size_t p = 0; p < topo_order.size(); ++p) {
       const JSONNode& jnode = nodes[topo_order[p]];
-      for (size_t i : jnode.data) {
-        if (--in_degree[i] == 0) {
-          topo_order.push_back(i);
+      if(!jnode.data.empty()){
+        for (size_t i : jnode.data) {
+          if (--in_degree[i] == 0) {
+            topo_order.push_back(i);
+          }
         }
       }
-      for (size_t i : jnode.fields) {
-        if (--in_degree[i] == 0) {
-          topo_order.push_back(i);
+      if(!jnode.fields.empty()){
+        for (size_t i : jnode.fields) {
+          if (--in_degree[i] == 0) {
+            topo_order.push_back(i);
+          }
         }
       }
     }
