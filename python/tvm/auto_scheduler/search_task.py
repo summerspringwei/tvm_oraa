@@ -588,6 +588,8 @@ class SearchTask(Object):
         state["target"], state["target_host"] = Target.canon_target_and_host(
             state["target"], state["target_host"]
         )
+        if "desc" not in state.keys():
+            state["desc"] = ""
         self.__init_handle_by_constructor__(
             _ffi_api.SearchTask,
             state["compute_dag"],

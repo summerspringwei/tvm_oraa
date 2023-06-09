@@ -72,17 +72,18 @@ def draw_multiple_bar_points(data_arrs, figure_name, offset=0):
     axs.set_xlabel("Iterations")
     axs.set_ylabel("Latency (us)")
     plt.savefig(figure_name+"_latency_compares.pdf")
+    plt.savefig(figure_name+"_latency_compares.tiff")
 
 
 def draw_two_run_compares(baseline_run_secs, pretrained_run_secs, figure_name):
     baseline_run_secs = baseline_run_secs.reshape((baseline_run_secs.size))
     pretrained_run_secs = pretrained_run_secs.reshape((pretrained_run_secs.size))
     min_length = min(baseline_run_secs.size, pretrained_run_secs.size)
-    baseline_run_secs = baseline_run_secs[0:min_length]
-    pretrained_run_secs = pretrained_run_secs[0:min_length]
     # Reverse 
     baseline_run_secs = np.flip(baseline_run_secs)
     pretrained_run_secs = np.flip(pretrained_run_secs)
+    baseline_run_secs = baseline_run_secs[-min_length:]
+    pretrained_run_secs = pretrained_run_secs[-min_length:]
     # Draw comparation
     draw_multiple_bar_points([baseline_run_secs, pretrained_run_secs], figure_name+"-2000")
     draw_multiple_bar_points([baseline_run_secs[200:], pretrained_run_secs[200:]], figure_name+"-1800", offset=200)
@@ -95,7 +96,7 @@ if __name__=="__main__":
     # benchmark_dir_path = "ms_work_dir"
     # benchmark_dir_path = "ms_work_dir_matmul_m1024k1024n1024"
     # load_tuning_records(benchmark_dir_path)
-    baseline_run_secs = load_run_secs(os.path.join(saved_np_data, "ms_work_dir_matmul_m384k768n768"+"_run_secs.npy"))
-    pretrained_run_secs = load_run_secs(os.path.join(saved_np_data, "ms_work_dir_matmul_m384k768n768_run_secs_with_pretrain_model.npy"))
+    baseline_run_secs = load_run_secs(os.path.join(saved_np_data, "ms_work_dir_matmul_m384k768n768"+"_run_secs_xgboost.npy"))
+    pretrained_run_secs = load_run_secs(os.path.join(saved_np_data, "ms_work_dir_matmul_m384k768n768_run_secs_with_pretrain_model_xgboost.npy"))
     draw_two_run_compares(baseline_run_secs, pretrained_run_secs, "figures/matmul_m384k768n768")
     # draw_run_secs(all_run_secs, benchmark_dir_path)
