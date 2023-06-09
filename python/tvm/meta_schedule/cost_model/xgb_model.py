@@ -22,6 +22,7 @@ from itertools import chain as itertools_chain
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np  # type: ignore
+import tensorflow as tf
 
 from ...contrib.tar import tar, untar
 from ...runtime import NDArray
@@ -318,6 +319,7 @@ class XGBModel(PyCostModel):
     # adaptive training
     adaptive_training: bool
     last_train_size: int
+    validation_record: List[Tuple[str, float]]
 
     def __init__(
         self,
@@ -362,6 +364,9 @@ class XGBModel(PyCostModel):
         # adaptive training
         self.adaptive_training = adaptive_training
         self.last_train_size = 0
+        self.validation_record = []
+        
+
 
     def load(self, path: str) -> None:
         """Load the cost model from given file location.
@@ -398,6 +403,7 @@ class XGBModel(PyCostModel):
             if os.path.exists(model_path):
                 booster = xgb.Booster()
                 booster.load_model(model_path)
+                logger.info(f"Load cost model at {model_path}")
             else:
                 self.booster = None
         self.data = data
@@ -421,6 +427,7 @@ class XGBModel(PyCostModel):
         with tempfile.TemporaryDirectory() as tmp_dir:
             model_path = os.path.join(tmp_dir, "model.bin")
             data_path = os.path.join(tmp_dir, "data.npy")
+            validation_path = os.path.join(tmp_dir, "validation-rmse.npy")
             # Step 1. Save the model
             booster = self.booster
             if booster is not None:
@@ -440,7 +447,10 @@ class XGBModel(PyCostModel):
                 file=data_path,
                 arr=np.array(data, dtype=object),
             )
-            # Step 3. Tar it
+            # Step 3. Save validation result
+            data = [value for (name, value) in self.validation_record if name=="p-rmse"]
+            np.save(file=validation_path, arr=np.array(data, dtype=object))
+            # Step 4. Tar it
             tar(path, [x for x in [model_path, data_path] if x is not None])
             logger.info("Saved XGBModel to %s", path)
 
@@ -483,16 +493,16 @@ class XGBModel(PyCostModel):
 
         # Steps 3. Run validation
         if group is not None and self.booster is not None:
-            logger.debug(
-                "XGB validation: %s",
-                "\t".join(
-                    f"{key}: {score:.6f}"
-                    for key, score in self._validate(
+            for key, score in self._validate(
                         xs=new_features,
                         ys=group.min_cost / new_mean_costs,
-                    )
-                ),
-            )
+                    ):
+                self.validation_record.append((key, score))
+                logger.info(f"XGB validation {key}: {score:.6f}")
+                with self.writer.as_default():
+                    tf.summary.scalar(key, score, self.validate_step)
+            self.validate_step += 1
+            self.writer.flush()
 
         # Step 4. Add the features into the data points
         if group is None:
@@ -516,12 +526,16 @@ class XGBModel(PyCostModel):
         self.last_train_size = self.data_size
 
         # Step 5. Re-train the model
+        xs=list(itertools_chain.from_iterable([g.features for g in self.data.values()]))
+        ys=np.concatenate(
+            [g.min_cost / g.costs for g in self.data.values()],
+            axis=0,
+        )
+        logger.info("Get {} real candidate latency".format(ys.size))
+        logger.info("real: {}".format(ys))
         self._train(
-            xs=list(itertools_chain.from_iterable([g.features for g in self.data.values()])),
-            ys=np.concatenate(
-                [g.min_cost / g.costs for g in self.data.values()],
-                axis=0,
-            ),
+            xs=xs,
+            ys=ys,
         )
 
     def predict(
@@ -543,6 +557,7 @@ class XGBModel(PyCostModel):
         result : np.ndarray
             The predicted normalized score.
         """
+        logger.info("predict {} candidates".format(len(candidates)))
         if self.data_size >= self.num_warmup_samples and self.booster is not None:
             ret = self._predict(
                 xs=[
@@ -578,7 +593,7 @@ class XGBModel(PyCostModel):
 
         def avg_peak_score(ys_pred: np.ndarray, d_train: "xgb.DMatrix"):  # type: ignore # pylint: disable = unused-argument
             return self.d_train.average_peak_score(ys_pred, self.average_peak_n)
-
+        
         self.booster = xgb.train(
             self.config.to_dict(),
             self.d_train.dmatrix,
@@ -641,6 +656,8 @@ class XGBModel(PyCostModel):
             )
         ]
         eval_result.sort(key=make_metric_sorter("p-rmse"))
+        logger.debug("ys: {}".format(ys))
+        logger.debug("ys_pred: {}".format(ys_pred))
         return eval_result
 
 

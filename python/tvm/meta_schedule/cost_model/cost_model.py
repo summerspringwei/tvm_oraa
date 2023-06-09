@@ -24,6 +24,7 @@ from typing_extensions import Literal
 # isort: on
 
 import numpy as np  # type: ignore
+import tensorflow as tf
 from tvm._ffi import register_object
 from tvm.runtime import Object
 
@@ -198,6 +199,12 @@ class PyCostModel:
         "cls": _PyCostModel,
         "methods": ["load", "save", "update", "predict", "__str__"],
     }
+
+    def __init__(self) -> None:
+        # Writer will output to ./runs/ directory by default
+        self.writer = tf.summary.create_file_writer("/tmp/xgb")
+        self.writer.set_as_default()
+        self.validate_step = 0
 
     def load(self, path: str) -> None:
         """Load the cost model from given file location.

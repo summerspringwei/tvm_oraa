@@ -927,7 +927,7 @@ class SegmentSumMLPTrainer:
         self.state.add_to_group(features, costs, group_hash)
         if not self.frozen:
             self.predict_incremental(features, costs)
-            if self.state.untrained_size / self.state.data_size > 0.2:
+            if self.state.untrained_size / self.state.data_size > 0.2 and False:
                 self.train_full()
             else:
                 self.train_incremental(features, costs)

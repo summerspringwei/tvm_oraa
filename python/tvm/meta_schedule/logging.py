@@ -150,7 +150,7 @@ def create_loggers(
     config["formatters"].setdefault(
         "tvm.meta_schedule.standard_formatter",
         {
-            "format": "%(asctime)s [%(levelname)s] %(message)s",
+            "format": "%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     )
