@@ -277,6 +277,17 @@ def lambda_rank_loss(  # pylint: disable=too-many-locals
         The lambda rank loss.
     """
     device = preds.device
+    logger.info(preds.shape)
+    logger.info(labels.shape)
+    logger.info(preds)
+    logger.info(labels)
+    # Handle preds and label dim 0
+    def dim0_to_dim1(t: torch.Tensor):
+        if t.dim() > 0:
+            return t
+        else:
+            return t.reshape([1])
+    preds, labels = dim0_to_dim1(preds), dim0_to_dim1(labels)
     y_pred, y_true = preds[None, :], labels[None, :]
     y_pred_sorted, indices_pred = y_pred.sort(descending=True, dim=-1)
     y_true_sorted, _ = y_true.sort(descending=True, dim=-1)
