@@ -30,7 +30,7 @@ def load_ansor_tasks_and_tune_with_meta_scheduler(tasks_file, num_tasks_to_tune=
     tune_functions, task_weights = [], []
     # target = Target("nvidia/nvidia-a100")
     target = Target("nvidia/geforce-rtx-3090")
-    tasks_to_tune = ansor_tasks[0:] if num_tasks_to_tune < 0 else ansor_tasks[:num_tasks_to_tune]
+    tasks_to_tune = ansor_tasks[2:] if num_tasks_to_tune < 0 else ansor_tasks[:num_tasks_to_tune]
     for t in tasks_to_tune:
         prim_func = te.create_prim_func(t.compute_dag.tensors)
         logging.info(prim_func.script())
@@ -61,6 +61,6 @@ def load_ansor_tasks_and_tune_with_meta_scheduler(tasks_file, num_tasks_to_tune=
 
 if __name__=="__main__":
     # load_ansor_tasks_and_tune_with_meta_scheduler(NETWORK_INFO_FOLDER+"all_tasks.pkl", 2)
-    load_ansor_tasks_and_tune_with_meta_scheduler(NETWORK_INFO_FOLDER+"((bert_base,[(1,128)]),cuda).task.pkl",
-                                                  num_tasks_to_tune=2,
-                                                   workdir_name="((bert_base,[(1,128)]),cuda)_ms_workdir")
+    load_ansor_tasks_and_tune_with_meta_scheduler(NETWORK_INFO_FOLDER+"((bert_large,[(1,128)]),cuda).task.pkl",
+                                                  num_tasks_to_tune=-1,
+                                                   workdir_name="saved_work_dir/"+"((bert_large,[(1,128)]),cuda)_ms_workdir")

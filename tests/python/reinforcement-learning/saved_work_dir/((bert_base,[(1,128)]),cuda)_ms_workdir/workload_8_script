@@ -1,0 +1,78 @@
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(placeholder: T.Buffer[(1, 128, 768), "float32"], placeholder_1: T.Buffer[(1, 3072, 768), "float32"], placeholder_2: T.Buffer[3072, "float32"], T_multiply: T.Buffer[(1, 128, 3072), "float32"]):
+        # function attr dict
+        T.func_attr({"layout_free_buffers": [1], "tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        compute = T.alloc_buffer([1, 128, 3072], dtype="float32")
+        T_add = T.alloc_buffer([1, 128, 3072], dtype="float32")
+        compile_engine_const = T.alloc_buffer([], dtype="float32")
+        compile_engine_const_1 = T.alloc_buffer([], dtype="float32")
+        T_multiply_1 = T.alloc_buffer([1, 128, 3072], dtype="float32")
+        T_fast_erf = T.alloc_buffer([1, 128, 3072], dtype="float32")
+        compile_engine_const_2 = T.alloc_buffer([], dtype="float32")
+        T_multiply_2 = T.alloc_buffer([1, 128, 3072], dtype="float32")
+        T_add_1 = T.alloc_buffer([1, 128, 3072], dtype="float32")
+        for b, i, j, k in T.grid(1, 128, 3072, 768):
+            with T.block("compute"):
+                v_b, v_i, v_j, v_k = T.axis.remap("SSSR", [b, i, j, k])
+                T.reads(placeholder[0, v_i, v_k], placeholder_1[0, v_j, v_k])
+                T.writes(compute[v_b, v_i, v_j])
+                with T.init():
+                    compute[v_b, v_i, v_j] = T.float32(0)
+                compute[v_b, v_i, v_j] = compute[v_b, v_i, v_j] + placeholder[0, v_i, v_k] * placeholder_1[0, v_j, v_k]
+        for ax0, ax1, ax2 in T.grid(1, 128, 3072):
+            with T.block("T_add"):
+                v_ax0, v_ax1, v_ax2 = T.axis.remap("SSS", [ax0, ax1, ax2])
+                T.reads(compute[v_ax0, v_ax1, v_ax2], placeholder_2[v_ax2])
+                T.writes(T_add[v_ax0, v_ax1, v_ax2])
+                T_add[v_ax0, v_ax1, v_ax2] = compute[v_ax0, v_ax1, v_ax2] + placeholder_2[v_ax2]
+        with T.block("compile_engine_const"):
+            vi = T.axis.spatial(1, 0)
+            T.reads()
+            T.writes(compile_engine_const[()])
+            compile_engine_const[()] = T.float32(0.5)
+        with T.block("compile_engine_const_1"):
+            vi = T.axis.spatial(1, 0)
+            T.reads()
+            T.writes(compile_engine_const_1[()])
+            compile_engine_const_1[()] = T.float32(0.70710676908493042)
+        for ax0, ax1, ax2 in T.grid(1, 128, 3072):
+            with T.block("T_multiply"):
+                v_ax0, v_ax1, v_ax2 = T.axis.remap("SSS", [ax0, ax1, ax2])
+                T.reads(T_add[v_ax0, v_ax1, v_ax2], compile_engine_const_1[()])
+                T.writes(T_multiply_1[v_ax0, v_ax1, v_ax2])
+                T_multiply_1[v_ax0, v_ax1, v_ax2] = T_add[v_ax0, v_ax1, v_ax2] * compile_engine_const_1[()]
+        for ax0, ax1, ax2 in T.grid(1, 128, 3072):
+            with T.block("T_fast_erf"):
+                v_ax0, v_ax1, v_ax2 = T.axis.remap("SSS", [ax0, ax1, ax2])
+                T.reads(T_multiply_1[v_ax0, v_ax1, v_ax2])
+                T.writes(T_fast_erf[v_ax0, v_ax1, v_ax2])
+                T_fast_erf[v_ax0, v_ax1, v_ax2] = T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.float32(-2.7261423674040941e-10) + T.float32(2.770681462038738e-08)) + T.float32(-2.101023937939317e-06)) + T.float32(-5.6925062381196767e-05)) + T.float32(-0.00073499063728377223)) + T.float32(-0.0029545999132096772)) + T.float32(-0.016096033155918121)) / (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * (T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.max(T.min(T_multiply_1[v_ax0, v_ax1, v_ax2], T.float32(4)), T.float32(-4)) * T.float32(-1.4566071513399951e-05) + T.float32(-0.00021337404905352739)) + T.float32(-0.001682827016338706)) + T.float32(-0.0073733292520046234)) + T.float32(-0.01426473911851645))
+        with T.block("compile_engine_const_2"):
+            vi = T.axis.spatial(1, 0)
+            T.reads()
+            T.writes(compile_engine_const_2[()])
+            compile_engine_const_2[()] = T.float32(0.5)
+        for ax0, ax1, ax2 in T.grid(1, 128, 3072):
+            with T.block("T_multiply_1"):
+                v_ax0, v_ax1, v_ax2 = T.axis.remap("SSS", [ax0, ax1, ax2])
+                T.reads(T_fast_erf[v_ax0, v_ax1, v_ax2], compile_engine_const_2[()])
+                T.writes(T_multiply_2[v_ax0, v_ax1, v_ax2])
+                T_multiply_2[v_ax0, v_ax1, v_ax2] = T_fast_erf[v_ax0, v_ax1, v_ax2] * compile_engine_const_2[()]
+        for ax0, ax1, ax2 in T.grid(1, 128, 3072):
+            with T.block("T_add_1"):
+                v_ax0, v_ax1, v_ax2 = T.axis.remap("SSS", [ax0, ax1, ax2])
+                T.reads(compile_engine_const[()], T_multiply_2[v_ax0, v_ax1, v_ax2])
+                T.writes(T_add_1[v_ax0, v_ax1, v_ax2])
+                T_add_1[v_ax0, v_ax1, v_ax2] = compile_engine_const[()] + T_multiply_2[v_ax0, v_ax1, v_ax2]
+        for ax0, ax1, ax2 in T.grid(1, 128, 3072):
+            with T.block("T_multiply_2"):
+                v_ax0, v_ax1, v_ax2 = T.axis.remap("SSS", [ax0, ax1, ax2])
+                T.reads(T_add[v_ax0, v_ax1, v_ax2], T_add_1[v_ax0, v_ax1, v_ax2])
+                T.writes(T_multiply[v_ax0, v_ax1, v_ax2])
+                T_multiply[v_ax0, v_ax1, v_ax2] = T_add[v_ax0, v_ax1, v_ax2] * T_add_1[v_ax0, v_ax1, v_ax2]
+    

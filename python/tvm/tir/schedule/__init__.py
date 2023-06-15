@@ -21,7 +21,7 @@ from .block_scope import BlockScope, Dependency, DepKind, StmtSRef
 from .instruction import Instruction, InstructionKind
 from .schedule import BlockRV, ExprRV, LoopRV, Schedule, ScheduleError
 from .state import ScheduleDebugMask, ScheduleState
-from .trace import Trace
+from .trace import Trace, apply_trace_to_schedule_in_parallel
 
 from . import analysis
 from . import transform

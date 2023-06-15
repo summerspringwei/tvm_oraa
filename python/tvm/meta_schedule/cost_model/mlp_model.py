@@ -44,7 +44,8 @@ from ..tune_context import TuneContext
 from ..utils import derived_object, shash2hex
 
 logger = get_logger("mlp_model")  # pylint: disable=invalid-name
-
+import logging
+logger.setLevel(logging.DEBUG)
 # pylint: disable=no-member,import-outside-toplevel
 
 
@@ -279,8 +280,6 @@ def lambda_rank_loss(  # pylint: disable=too-many-locals
     device = preds.device
     logger.info(preds.shape)
     logger.info(labels.shape)
-    logger.info(preds)
-    logger.info(labels)
     # Handle preds and label dim 0
     def dim0_to_dim1(t: torch.Tensor):
         if t.dim() > 0:
@@ -340,6 +339,8 @@ def topk_score(
     score : float
         The top-k score
     """
+    if pred_results.dim() == 0:
+        pred_results = pred_results.reshape([1])
     k = min(k, len(pred_results))
     topk_indices = torch.topk(pred_results, k, largest=False).indices
     score = gt_results.min() / gt_results[topk_indices].min()
@@ -733,6 +734,7 @@ class SegmentSumMLPTrainer:
         )
         if batch % self.train_verbose == 0:
             logger.info("Batch: %d, train loss: %6f", batch, train_loss)
+            print(("Batch: %d, train loss: %6f", batch, train_loss))
         return train_loss
 
     def predict_step(
@@ -792,8 +794,10 @@ class SegmentSumMLPTrainer:
         test_features = list(
             itertools_chain.from_iterable([g.features for g in test_data.values()])
         )
-        train_results = np.concatenate([g.min_cost / g.costs for g in train_data.values()])
-        test_results = np.concatenate([g.min_cost / g.costs for g in test_data.values()])
+        # train_results = np.concatenate([g.min_cost / g.costs for g in train_data.values()])
+        # test_results = np.concatenate([g.min_cost / g.costs for g in test_data.values()])
+        train_results = np.concatenate([np.divide(g.min_cost, g.costs) for g in train_data.values()])
+        test_results = np.concatenate([np.divide(g.min_cost, g.costs) for g in test_data.values()])
         train_loader = SegmentDataLoader(
             train_features, train_results, batch_size=self.batch_size, shuffle=True
         )
@@ -903,7 +907,11 @@ class SegmentSumMLPTrainer:
         pred_results, losses, scores = [], [], []
         for data in loader:
             pred_results_batch, losses_batch, scores_batch = self.predict_step(data)
+            if pred_results_batch is not None:
+                pred_results_batch = pred_results_batch.reshape([-1])
             pred_results.append(pred_results_batch)
+            if losses_batch is not None and isinstance(losses_batch, torch.Tensor):
+                losses_batch = losses_batch.reshape([-1])
             losses.append(losses_batch)
             scores.append(scores_batch)
         pred_results = np.concatenate(pred_results)

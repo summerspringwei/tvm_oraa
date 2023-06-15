@@ -1,0 +1,18 @@
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(placeholder: T.Buffer[(12, 128, 64), "float32"], placeholder_1: T.Buffer[(12, 128, 64), "float32"], compute: T.Buffer[(12, 128, 128), "float32"]):
+        # function attr dict
+        T.func_attr({"layout_free_buffers": [1], "tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        for b, i, j, k in T.grid(12, 128, 128, 64):
+            with T.block("compute"):
+                v_b, v_i, v_j, v_k = T.axis.remap("SSSR", [b, i, j, k])
+                T.reads(placeholder[v_b, v_i, v_k], placeholder_1[v_b, v_j, v_k])
+                T.writes(compute[v_b, v_i, v_j])
+                with T.init():
+                    compute[v_b, v_i, v_j] = T.float32(0)
+                compute[v_b, v_i, v_j] = compute[v_b, v_i, v_j] + placeholder[v_b, v_i, v_k] * placeholder_1[v_b, v_j, v_k]
+    

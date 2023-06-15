@@ -1,0 +1,46 @@
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(placeholder: T.Buffer[(1, 768), "float32"], placeholder_1: T.Buffer[(768, 768), "float32"], placeholder_2: T.Buffer[768, "float32"], T_fast_tanh: T.Buffer[(1, 768), "float32"]):
+        # function attr dict
+        T.func_attr({"layout_free_buffers": [1], "tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        T_dense = T.alloc_buffer([1, 768], dtype="float32")
+        T_add = T.alloc_buffer([1, 768], dtype="float32")
+        T_minimum = T.alloc_buffer([1, 768], dtype="float32")
+        T_maximum = T.alloc_buffer([1, 768], dtype="float32")
+        for i, j, k in T.grid(1, 768, 768):
+            with T.block("T_dense"):
+                v_i, v_j, v_k = T.axis.remap("SSR", [i, j, k])
+                T.reads(placeholder[v_i, v_k], placeholder_1[v_j, v_k])
+                T.writes(T_dense[v_i, v_j])
+                with T.init():
+                    T_dense[v_i, v_j] = T.float32(0)
+                T_dense[v_i, v_j] = T_dense[v_i, v_j] + placeholder[v_i, v_k] * placeholder_1[v_j, v_k]
+        for ax0, ax1 in T.grid(1, 768):
+            with T.block("T_add"):
+                v_ax0, v_ax1 = T.axis.remap("SS", [ax0, ax1])
+                T.reads(T_dense[v_ax0, v_ax1], placeholder_2[v_ax1])
+                T.writes(T_add[v_ax0, v_ax1])
+                T_add[v_ax0, v_ax1] = T_dense[v_ax0, v_ax1] + placeholder_2[v_ax1]
+        for ax0, ax1 in T.grid(1, 768):
+            with T.block("T_minimum"):
+                v_ax0, v_ax1 = T.axis.remap("SS", [ax0, ax1])
+                T.reads(T_add[v_ax0, v_ax1])
+                T.writes(T_minimum[v_ax0, v_ax1])
+                T_minimum[v_ax0, v_ax1] = T.min(T_add[v_ax0, v_ax1], T.float32(9))
+        for ax0, ax1 in T.grid(1, 768):
+            with T.block("T_maximum"):
+                v_ax0, v_ax1 = T.axis.remap("SS", [ax0, ax1])
+                T.reads(T_minimum[v_ax0, v_ax1])
+                T.writes(T_maximum[v_ax0, v_ax1])
+                T_maximum[v_ax0, v_ax1] = T.max(T_minimum[v_ax0, v_ax1], T.float32(-9))
+        for ax0, ax1 in T.grid(1, 768):
+            with T.block("T_fast_tanh"):
+                v_ax0, v_ax1 = T.axis.remap("SS", [ax0, ax1])
+                T.reads(T_maximum[v_ax0, v_ax1])
+                T.writes(T_fast_tanh[v_ax0, v_ax1])
+                T_fast_tanh[v_ax0, v_ax1] = T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * T.float32(-2.76076847742355e-16) + T.float32(2.0001879048247699e-13)) + T.float32(-8.60467152213735e-11)) + T.float32(5.1222970903711401e-08)) + T.float32(1.4857223571797901e-05)) + T.float32(0.00063726192887543596)) + T.float32(0.0048935245589178597)) / (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * (T_maximum[v_ax0, v_ax1] * T_maximum[v_ax0, v_ax1] * T.float32(1.1982583946670199e-06) + T.float32(0.000118534705686654)) + T.float32(0.0022684346324390002)) + T.float32(0.0048935251855438504))
+    

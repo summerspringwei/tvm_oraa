@@ -17,6 +17,7 @@
  * under the License.
  */
 #include "./utils.h"
+#include <tvm/support/parallel_for.h>
 
 namespace tvm {
 namespace tir {
@@ -269,6 +270,17 @@ void TraceNode::ApplyToSchedule(
     TranslateAddOutputRVs(inst->outputs, outputs, &rv_map);
   }
 }
+
+void ApplyTranceToScheduleInParallel(Array<Schedule> schedule_array, Array<Trace> trace_array, 
+  bool remove_postproc, runtime::TypedPackedFunc<ObjectRef(const Instruction& inst, const Array<ObjectRef>& inputs,  //
+                                       const Array<ObjectRef>& attrs,                            //
+                                       const Optional<ObjectRef>& decision)>
+        decision_provider){
+          support::parallel_for(0, trace_array.size(), [&](int index){
+            trace_array[index].as<TraceNode>()->ApplyToSchedule(schedule_array[index], remove_postproc, decision_provider);
+          });
+}
+
 
 ObjectRef TraceNode::AsJSON(bool remove_postproc) const {
   std::unordered_map<ObjectRef, String, ObjectPtrHash, ObjectPtrEqual> rv_names;
@@ -550,6 +562,8 @@ TVM_REGISTER_GLOBAL("tir.schedule.TraceWithDecision")
 TVM_REGISTER_GLOBAL("tir.schedule.TraceSimplified").set_body_method<Trace>(&TraceNode::Simplified);
 TVM_REGISTER_GLOBAL("tir.schedule.TraceApplyJSONToSchedule")
     .set_body_typed(Trace::ApplyJSONToSchedule);
+TVM_REGISTER_GLOBAL("tir.schedule.ApplyTranceToScheduleInParallel")
+    .set_body_typed(ApplyTranceToScheduleInParallel);
 
 }  // namespace tir
 }  // namespace tvm

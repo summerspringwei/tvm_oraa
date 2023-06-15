@@ -278,3 +278,33 @@ class Trace(Object):
         )
 
         cprint(str(self), style=style, black_format=black_format)
+
+
+def apply_trace_to_schedule_in_parallel(schedules, traces: List[Trace],
+        remove_postproc: bool,
+        decision_provider: Optional[
+            Callable[
+                [Instruction, List[INPUT_RV_TYPE], List[ATTR_TYPE], DECISION_TYPE], DECISION_TYPE
+            ]
+        ] = None) -> None:
+    """Apply a list of trace to a list of TensorIR schedule
+
+    Parameters
+    ----------
+    schedules : List[Schedule]
+        A list of schedule created from a workload
+    traces :List[Trace]
+        An execution trace of a scheduling program.
+    remove_postproc : bool
+        If postprocessing instructions are removed
+    decision_provider: Optional[Callable] = None
+        A callback that allows users to mutate decisions on the fly when applying instructions.
+        The signature of the callback is:
+        - The 1st argument: The instruction
+        - The 2nd argument: The input random variables
+        - The 3rd argument: The attributes
+        - The 4th argument: The decision
+        - Return: A new decision
+
+    """
+    _ffi_api.ApplyTranceToScheduleInParallel(schedules, traces, remove_postproc, decision_provider)

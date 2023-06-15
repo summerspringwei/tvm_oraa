@@ -13,8 +13,6 @@ from tvm import meta_schedule as ms
 from tvm.meta_schedule.database import json_database
 from tvm.tir.tensor_intrin import cuda
 
-FORMAT = '%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s'
-logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 def my_matmul(m, n, k):
   A = relay.var('A', shape=(m, k), dtype='float16')
@@ -125,32 +123,6 @@ class MetaSchedulerRunnerAndAnalyzer:
           f.flush()
       return all_run_micro_seconds
   
-def load_tuning_records_and_apply(work_dir_path):
-    database = ms.database.create('json', 
-      os.path.join(work_dir_path, "database_workload.json"),
-      os.path.join(work_dir_path, "database_tuning_record.json"))
-    all_tuning_record = database.get_all_tuning_records()
-    
-    target = Target("nvidia/nvidia-a100")
-    tune_context = ms.TuneContext(mod=all_tuning_record[0].workload.mod, target=target, 
-                    space_generator="post-order-apply", 
-                    search_strategy="evolutionary")
-    extractor = ms.FeatureExtractor.create("per-store-feature")
-    candidates = []
-    idx = 0
-    for record in all_tuning_record:
-      # print(record.workload.mod.script())
-      sch = tir.Schedule(record.workload.mod)
-      record.trace.apply_to_schedule(sch, False)
-      # print(sch.mod.script())
-      candidates.append(ms.MeasureCandidate(sch, record.args_info))
-      idx += 1
-      print(idx)
-      if idx > 10:
-        break
-    features = extractor.extract_from(tune_context, candidates)
-    for f in features:
-      print(f.numpy())
 
 
 if __name__=="__main__":
