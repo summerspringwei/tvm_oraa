@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optiona
 
 import numpy as np  # type: ignore
 import tensorflow as tf
+import torch
 
 from ...contrib.tar import tar, untar
 from ...runtime import NDArray
@@ -32,7 +33,7 @@ from ..logging import get_logger
 from ..runner import RunnerResult
 from ..search_strategy import MeasureCandidate
 from ..utils import cpu_count, derived_object, shash2hex
-from .metric import max_curve
+from .metric import max_curve, top_k_intersection_count, pairwise_rank_error_count
 
 if TYPE_CHECKING:
     import xgboost as xgb  # type: ignore
@@ -199,6 +200,30 @@ class PackSum:
         score = np.mean(curve)
         return f"a-peak@{n}", score
 
+    def pairwise_rank_error(self,
+                            ys_pred: np.ndarray
+    ) -> Tuple[str, float]:
+        """Evaluate pairwise rank error count"""
+        # Making prediction
+        ys_pred = self.predict_with_score(ys_pred)
+        # Propagate prediction to each block
+        ys_pred = ys_pred[self.ids]  # pylint: disable=invalid-sequence-index
+        ys = self.dmatrix.get_label()
+        count = pairwise_rank_error_count(torch.tensor(ys_pred), torch.tensor(ys))
+        return f"pairwise_rank_error_count@{len(ys)}", count
+
+
+    def top_k_intersection(self, 
+                                 ys_pred: np.ndarray
+    )-> Tuple[str, float]:
+        """Evaluate how many top 10 values predict in ys_pred are also in ys"""
+        # Making prediction
+        ys_pred = self.predict_with_score(ys_pred)
+        # Propagate prediction to each block
+        ys_pred = ys_pred[self.ids]  # pylint: disable=invalid-sequence-index
+        ys = self.dmatrix.get_label()
+        count = top_k_intersection_count(torch.tensor(ys_pred), torch.tensor(ys), k=32)
+        return f"top_k_intersection_count@{32}/{len(ys)}", count
 
 class XGBConfig(NamedTuple):
     """XGBoost model configuration
@@ -498,7 +523,7 @@ class XGBModel(PyCostModel):
                         ys=group.min_cost / new_mean_costs,
                     ):
                 self.validation_record.append((key, score))
-                logger.info(f"XGB validation {key}: {score:.6f}")
+                logger.debug(f"XGB validation {key}: {score:.6f}")
                 with self.writer.as_default():
                     tf.summary.scalar(key, score, self.validate_step)
             self.validate_step += 1
@@ -653,6 +678,8 @@ class XGBModel(PyCostModel):
             for feval in (
                 average_peak_score,
                 d_valid.rmse,
+                d_valid.pairwise_rank_error,
+                d_valid.top_k_intersection
             )
         ]
         eval_result.sort(key=make_metric_sorter("p-rmse"))

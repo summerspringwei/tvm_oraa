@@ -1,0 +1,42 @@
+# from tvm.script import tir as T
+@tvm.script.ir_module
+class Module:
+    @T.prim_func
+    def main(placeholder: T.Buffer[(1, 16, 256, 256), "float32"], T_softmax_norm: T.Buffer[(1, 16, 256, 256), "float32"]):
+        # function attr dict
+        T.func_attr({"tir.noalias": True, "global_symbol": "main"})
+        # body
+        # with T.block("root")
+        T_softmax_maxelem = T.alloc_buffer([1, 16, 256], dtype="float32")
+        T_softmax_exp = T.alloc_buffer([1, 16, 256, 256], dtype="float32")
+        T_softmax_expsum = T.alloc_buffer([1, 16, 256], dtype="float32")
+        for i0, i1, i2, k in T.grid(1, 16, 256, 256):
+            with T.block("T_softmax_maxelem"):
+                v_i0, v_i1, v_i2, v_k = T.axis.remap("SSSR", [i0, i1, i2, k])
+                T.reads(placeholder[v_i0, v_i1, v_i2, v_k])
+                T.writes(T_softmax_maxelem[v_i0, v_i1, v_i2])
+                with T.init():
+                    T_softmax_maxelem[v_i0, v_i1, v_i2] = T.float32(-3.402823466385289e+38)
+                T_softmax_maxelem[v_i0, v_i1, v_i2] = T.max(T_softmax_maxelem[v_i0, v_i1, v_i2], placeholder[v_i0, v_i1, v_i2, v_k])
+        for i0, i1, i2, i3 in T.grid(1, 16, 256, 256):
+            with T.block("T_softmax_exp"):
+                v_i0, v_i1, v_i2, v_i3 = T.axis.remap("SSSS", [i0, i1, i2, i3])
+                T.reads(placeholder[v_i0, v_i1, v_i2, v_i3], T_softmax_maxelem[v_i0, v_i1, v_i2])
+                T.writes(T_softmax_exp[v_i0, v_i1, v_i2, v_i3])
+                T_softmax_exp[v_i0, v_i1, v_i2, v_i3] = T.exp(placeholder[v_i0, v_i1, v_i2, v_i3] - T_softmax_maxelem[v_i0, v_i1, v_i2], dtype="float32")
+        for i0, i1, i2, k in T.grid(1, 16, 256, 256):
+            with T.block("T_softmax_expsum"):
+                v_i0, v_i1, v_i2, v_k = T.axis.remap("SSSR", [i0, i1, i2, k])
+                T.reads(T_softmax_exp[v_i0, v_i1, v_i2, v_k])
+                T.writes(T_softmax_expsum[v_i0, v_i1, v_i2])
+                with T.init():
+                    T_softmax_expsum[v_i0, v_i1, v_i2] = T.float32(0)
+                T_softmax_expsum[v_i0, v_i1, v_i2] = T_softmax_expsum[v_i0, v_i1, v_i2] + T_softmax_exp[v_i0, v_i1, v_i2, v_k]
+        for i0, i1, i2, i3 in T.grid(1, 16, 256, 256):
+            with T.block("T_softmax_norm"):
+                v_i0, v_i1, v_i2, v_i3 = T.axis.remap("SSSS", [i0, i1, i2, i3])
+                T.reads(T_softmax_exp[v_i0, v_i1, v_i2, v_i3], T_softmax_expsum[v_i0, v_i1, v_i2])
+                T.writes(T_softmax_norm[v_i0, v_i1, v_i2, v_i3])
+                T.block_attr({"axis":3})
+                T_softmax_norm[v_i0, v_i1, v_i2, v_i3] = T_softmax_exp[v_i0, v_i1, v_i2, v_i3] / T_softmax_expsum[v_i0, v_i1, v_i2]
+    

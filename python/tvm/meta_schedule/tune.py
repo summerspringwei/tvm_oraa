@@ -24,7 +24,7 @@ from .measure_callback import MeasureCallback
 from .runner import Runner
 from .task_scheduler import TaskScheduler
 from .tune_context import TuneContext
-
+from .runner import config
 
 def tune_tasks(
     *,
@@ -103,7 +103,8 @@ def tune_tasks(
     if not isinstance(builder, Builder):
         builder = Builder.create(builder, max_workers=num_cores)
     if not isinstance(runner, Runner):
-        runner = Runner.create(runner, max_workers=num_cores)
+        eval_config = config.EvaluatorConfig(number = 3, repeat = 10, min_repeat_ms = 100)
+        runner = Runner.create(runner, max_workers=num_cores, evaluator_config=eval_config)
     if database == "json":
         database = Database.create(database, work_dir=work_dir, module_equality=module_equality)
     elif not isinstance(database, Database):

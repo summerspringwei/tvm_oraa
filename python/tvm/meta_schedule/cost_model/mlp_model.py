@@ -42,10 +42,12 @@ from ..runner import RunnerResult
 from ..search_strategy import MeasureCandidate
 from ..tune_context import TuneContext
 from ..utils import derived_object, shash2hex
+from .metric import pairwise_rank_error_count, top_k_intersection_count
 
-logger = get_logger("mlp_model")  # pylint: disable=invalid-name
-import logging
-logger.setLevel(logging.DEBUG)
+logger = get_logger(__name__)  # pylint: disable=invalid-name
+print(logger.level)
+# import logging
+# logger.setLevel(logging.DEBUG)
 # pylint: disable=no-member,import-outside-toplevel
 
 
@@ -718,6 +720,11 @@ class SegmentSumMLPTrainer:
         )
         self.optimizer.zero_grad()
         pred_results = self.state.model(segment_sizes, features)
+        # validate
+        count = pairwise_rank_error_count(pred_results.clone().detach(), gt_results.clone().detach())
+        top_k_count = top_k_intersection_count(pred_results.clone().detach(), gt_results.clone().detach(), k=32)
+        logger.info(f"pairwise_rank_error_count@{len(gt_results)} {count}")
+        logger.info(f"top_k_intersection_count@{len(gt_results)} {top_k_count}")
         loss = lambda_rank_loss(pred_results, gt_results)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.state.model.parameters(), self.grad_clip_norm)
@@ -733,8 +740,7 @@ class SegmentSumMLPTrainer:
             pred_results.detach().cpu(),
         )
         if batch % self.train_verbose == 0:
-            logger.info("Batch: %d, train loss: %6f", batch, train_loss)
-            print(("Batch: %d, train loss: %6f", batch, train_loss))
+            logger.info("Batch: %d, train loss: %6f" % (batch, train_loss))
         return train_loss
 
     def predict_step(
@@ -971,6 +977,7 @@ class MLPModel(PyCostModel):
     ):
         super().__init__()
         self.trainer = trainer or SegmentSumMLPTrainer()
+        logger.info("Create MLPModel")
 
     def load(self, path: str) -> None:
         """Load the cost model, cached data or raw data from given file location.

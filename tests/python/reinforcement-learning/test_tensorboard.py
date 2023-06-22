@@ -1,5 +1,7 @@
 import time
 import logging
+import os
+
 import torch
 import numpy as np
 from tvm.meta_schedule.logging import get_logger
@@ -7,7 +9,17 @@ print(torch.__version__)
 print(torch.__file__)
 logger = get_logger("test_tensorboard")  # pylint: disable=invalid-name
 
+import re
+folder_path = "/home/xiachunwei/Software/tvm_oraa/tests/python/reinforcement-learning/saved_work_dir/((bert_large,[(1,256)]),cuda)_ms_workdir"
+all_files = [f for f in os.listdir(folder_path) \
+             if os.path.isfile(os.path.join(folder_path, f)) and \
+             re.search("workload_[0-9]+_features_run_secs", f)]
+print(all_files)
+for f in all_files:
+    out = 
+    print(out)
 
+exit(0)
 preds = torch.tensor([0.8, -0.5, 1.5, 1.2], dtype=torch.float32)
 label = torch.tensor([-0.5, 0.8, 1.2, 1.5], dtype=torch.float32)
 # preds_indices = []
@@ -33,6 +45,19 @@ def pairwise_rank(preds: torch.Tensor, label: torch.Tensor):
     print(pairwise)
 
 pairwise_rank(preds, label)
+
+
+def test_top_k_intersection(preds: torch.Tensor, label: torch.Tensor, k: int = 10):
+    # preds, label = preds[None, :], label[None, :]
+    _, preds_indices = torch.sort(preds, descending=True)
+    _, label_indices = torch.sort(label, descending=True)
+    top_k_preds_indices, top_k_label_indices = preds_indices[:k], label_indices[:k]
+    set_preds_indices, set_label_indices = set(top_k_preds_indices.tolist()), set(top_k_label_indices.tolist())
+    out = set_preds_indices.intersection(set_label_indices)
+    return len(out)
+
+print(test_top_k_intersection(preds, label, 2))
+print(test_top_k_intersection(preds, label, 3))
 
 exit(0)
 
