@@ -71,6 +71,7 @@ def load_tuning_records_and_save_features(work_dir_path):
             run_secs_list.append(mead_sec)
         # run_secs_list = [record.run_secs for record in record_list]
         features = extractor.extract_from(tune_context, candidate_arr)
+        exit(0)
         features = [f.numpy() for f in features]
         np.save(os.path.join(work_dir_path, f"workload_{idx}_features_run_secs"), 
                 (features, np.array(run_secs_list)), allow_pickle=True)

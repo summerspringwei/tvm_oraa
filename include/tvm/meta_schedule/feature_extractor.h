@@ -109,6 +109,12 @@ class FeatureExtractor : public runtime::ObjectRef {
                                                   int cache_line_bytes = 64,
                                                   bool extract_workload = false);
   /*!
+   * \brief Create a feature extractor that extracts features from each Block for GPU
+   * \param extract_workload Whether to extract features in the workload in tuning context or not.
+   * \return The feature extractor created.
+   */
+  TVM_DLL static FeatureExtractor PerBlockFeature(bool extract_workload = false);
+  /*!
    * \brief Create a feature extractor with customized methods on the python-side.
    * \param f_extract_from The packed function of `ExtractFrom`.
    * \param f_as_string The packed function of `AsString`.
