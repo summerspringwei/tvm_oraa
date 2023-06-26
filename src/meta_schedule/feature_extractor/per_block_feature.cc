@@ -43,8 +43,10 @@ namespace group0 {
             int64_t store_shared_to_global_transactions = 0;
             int64_t store_stride_for_global = 0;
             int64_t load_stride_for_shared = 0;
+            // TODO(Chunwei) Add number of elements computed by a block, and compute the ratio
+            
             // TODO(Chunwei) Add shared memory to/from register
-
+        
             // TODO(Chunwei) Add register to/from global memory
 
             static constexpr int64_t kCount = 8;
@@ -84,15 +86,155 @@ namespace group0 {
     };
 };
 
+} // namespace transform
+
 
 /*! \brief The feature extracted */
 struct Feature {
-  const BlockNode* block = nullptr;
-  
-
-  bool operator<(const Feature& other) const { return false; }
+  const BufferNode* buffer = nullptr;
+  int buffer_order = -1;
+  std::unique_ptr<transform::group0::Feature> group1 = nullptr;
+  bool operator<(const Feature& other) const { return buffer_order < other.buffer_order; }
 };
-} // namespace transform
+
+class LoadVarExtractor : private ExprVisitor {
+    public:
+    static Buffer Extract(const PrimExpr& expr){
+        LoadVarExtractor extractor;
+        extractor(expr);
+        return extractor.Buffer_;
+    }
+
+    void VisitExpr_(const BufferLoadNode* op) {
+        this->Buffer_ = op->buffer;
+        this->indices_ = op->indices;
+    }
+
+    private:
+    Buffer Buffer_;
+    Array<PrimExpr> indices_;
+};
+
+class PerBlockFeatureCollector : private StmtVisitor {
+    public:
+    static std::vector<Feature> Collect(const IRModule& mod) {
+    PerBlockFeatureCollector collector(true);
+    for (const auto& kv : mod->functions) {
+      if (const PrimFuncNode* func = kv.second.as<PrimFuncNode>()) {
+        collector.clear();
+        collector.set_func_buffer_map(func->buffer_map);
+        for(auto it: func->buffer_map) {
+            VLOG(0) << it.first << " " << it.second;
+        }
+        collector(func->body);
+      }
+    }
+    std::vector<Feature> result;
+    // result.reserve(collector.buffer_features_.size());
+    // for (auto& it : collector.buffer_features_) {
+    //   Feature& feature = it.second;
+    //     result.push_back(std::move(feature));
+    //   }
+    // }
+    // std::sort(result.begin(), result.end());
+    return result;
+  }
+    void clear() {
+        this->func_buffer_map_.clear();
+        this->shared_memory_map_.clear();
+        this->tensor_register_map_.clear();
+        this->global_memory_map_.clear();
+    }
+
+    void set_func_buffer_map(Map<tir::Var, Buffer> func_buffer_map){
+        for(auto& it : func_buffer_map){
+            this->func_buffer_map_.Set(it.second->data, it.second);
+        }
+    }
+
+    PerBlockFeatureCollector(bool extract_hardware):extract_hardware_(extract_hardware) {}
+
+private:
+    void VisitStmt_(const ForNode* loop) final {
+        int64_t auto_unroll;
+        ForVec* for_vec = loop_nest_.Push(loop, &auto_unroll);
+        StmtVisitor::VisitStmt_(loop);
+        loop_nest_.Pop(loop, for_vec, auto_unroll);
+    }
+
+    void VisitStmt_(const BufferStoreNode* store) final {
+        if (store->value->IsInstance<IntImmNode>() || store->value->IsInstance<FloatImmNode>()) {
+            return;
+        }
+        // 1. Count global memory -> shared memory
+        
+        auto dst_buff = store->buffer;
+        auto src_buff = LoadVarExtractor::Extract(store->value);
+        auto it_dst = shared_memory_map_.find(dst_buff->data);
+        auto it_src = func_buffer_map_.find(src_buff->data);
+        VLOG(0) << "Find dst_buff: " << dst_buff->data << "src_buff: " << src_buff;
+        if (it_dst!=shared_memory_map_.end() && it_src != func_buffer_map_.end()) {
+            // VLOG(0) << "Store to shared memory " << (*it_dst).first;
+            // VLOG(0) << "Load from global memory " << (*it_src).first;
+            auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+            VLOG(0) << " global memory: " << (*it_src).first << 
+                " -> shared memory: " << (*it_dst).first << " prod " << prod;
+        }
+        // 2. Count shared memory -> tensor core register
+
+        // 3. Count tensor core register -> shared memory
+
+        // 4. Count shared memory -> global memory
+        
+        this->VisitExpr(store->value);
+    }
+
+    // void VisitStmt_(const DeclBufferNode* op) {
+    //     this->VisitStmt(op->body);
+    // }
+
+    void VisitStmt_(const BlockNode* block) final {
+        StmtVisitor::VisitStmt_(block);
+        for (const Buffer& buffer : block->alloc_buffers) {
+            HandleBufferAlloc(buffer);
+        }
+    }
+
+    void VisitStmt_(const AllocateNode* op) {
+        const auto* ptr_type = op->buffer_var->type_annotation.as<PointerTypeNode>();
+        VLOG(0) << op->buffer_var << " " << ptr_type->storage_scope << " " << ptr_type->element_type;
+        // Get Allocate memory type
+        if("shared" == ptr_type->storage_scope){
+            shared_memory_map_.insert(std::make_pair(op->buffer_var, GetRef<Allocate>(op)));
+        }else if("wmma.accumulator" == ptr_type->storage_scope ||
+            "wmma.matrix_b" == ptr_type->storage_scope ||
+            "wmma.matrix_a" == ptr_type->storage_scope){
+            tensor_register_map_.insert(std::make_pair(op->buffer_var, GetRef<Allocate>(op)));
+        }else{
+            LOG_WARNING << "Unrecognized storage_scope: " << ptr_type->storage_scope;
+        }
+        this->VisitStmt(op->body);
+    }
+
+    void HandleBufferAlloc(const Buffer& buffer){
+        VLOG(0) << PrettyPrint(buffer).c_str();
+    }
+
+    std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> local_memory_map_;
+    std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> tensor_register_map_;
+    std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> shared_memory_map_;
+    std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> global_memory_map_;
+    Map<tir::Var, Buffer> func_buffer_map_;
+    
+    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> local_memory_map_;
+    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> tensor_register_map_;
+    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> shared_memory_map_;
+    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> global_memory_map_;
+    arith::Analyzer analyzer_;
+    LoopNest loop_nest_ = {};
+    bool extract_hardware_;
+};
+
 } // namespace tir
 } // namespace tvm
 
@@ -111,6 +253,7 @@ public:
         static transform::Sequential passes = tir::transform::PassListForPerBlockFeature();
         mod = passes(std::move(mod));
         VLOG(0) << PrettyPrint(mod);
+        tir::PerBlockFeatureCollector::Collect(mod);
     }
     
     Array<runtime::NDArray> ExtractFrom(const TuneContext& tune_context,

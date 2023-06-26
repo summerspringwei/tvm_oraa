@@ -12,6 +12,7 @@ from tvm.meta_schedule import database
 from tvm.target import Target
 from tvm.ir.module import IRModule
 from tvm.meta_schedule.logging import get_logger
+from tvm.tir.tensor_intrin import cuda
 
 logger = get_logger(__name__)
 import logging
@@ -31,7 +32,7 @@ def load_tuning_records_and_save_features(work_dir_path):
       os.path.join(work_dir_path, "database_workload.json"),
       os.path.join(work_dir_path, "database_tuning_record.json"))
     all_tuning_record = database.get_all_tuning_records()
-    
+    print(f"Load {len(all_tuning_record)} records")
     # Split tuning records according to workload
     workload_record_map: dict[database.WorkLoad, List[database.TuningRecord]] = {}
     for record in all_tuning_record:
@@ -45,8 +46,10 @@ def load_tuning_records_and_save_features(work_dir_path):
     idx = 0
     for workload, record_list in workload_record_map.items():
         logger.info(workload.mod.script(), len(record_list))
+        
         if len(record_list) == 0:
             continue
+        
         tune_context = ms.TuneContext(mod=workload.mod, target=record_list[0].target, 
                         space_generator="post-order-apply", 
                         search_strategy="evolutionary")
@@ -75,7 +78,16 @@ def load_tuning_records_and_save_features(work_dir_path):
         idx += 1
 
 
-if __name__ == '__main__':
-    folder_path = "saved_work_dir/((bert_large,[(1,64)]),cuda)_ms_workdir/"
-    load_tuning_records_and_save_features(folder_path)
+def test_single():
+    # extractor = ms.FeatureExtractor.create("per-block-feature", extract_workload=True)
+    # tune_context = ms.TuneContext(mod=mod, target=tvm.target.Target("nvidia/nvidia-a100"), 
+    #                     space_generator="post-order-apply", 
+    #                     search_strategy="evolutionary")
     
+    # features = extractor.extract_from(tune_context, )
+    pass
+
+if __name__ == '__main__':
+    # folder_path = "saved_work_dir/matmul_m384k768n768_from_scratch_mlp_with_rank_error_count"
+    folder_path = "saved_work_dir/feature_extractor_test"
+    load_tuning_records_and_save_features(folder_path)

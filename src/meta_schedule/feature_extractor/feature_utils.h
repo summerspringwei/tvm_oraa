@@ -73,6 +73,28 @@ struct LoopNest {
   ForVec threadIdx_z;  // The loops whose ForKind are kThreadBinding to threadIdx.z
   ForVec vthread;      // The loops whose ForKind are kThreadBinding to vthread.*
 
+
+  ForVec GetUnBindingLoop() {
+    ForVec result;
+    result.insert(result.end(), this->parallel.begin(), this->parallel.end());
+    result.insert(result.end(), this->vectorize.begin(), this->vectorize.end());
+    result.insert(result.end(), this->unroll.begin(), this->unroll.end());
+    result.insert(result.end(), this->vthread.begin(), this->vthread.end());
+    return result;
+  }
+
+  int64_t GetLoopsExtentProd(ForVec loops) {
+    int64_t result = 1;
+    for(auto l: loops) {
+      result = result * (*GetLoopIntExtent(l));
+    }
+    return result;
+  }
+
+  int64_t GetUnBindLoopsExtentProd() {
+    return GetLoopsExtentProd(GetUnBindingLoop());
+  }
+
   /*!
    * \brief Push a new loop into the loop nest
    * \param loop The loop to be pushed
