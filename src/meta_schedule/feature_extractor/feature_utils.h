@@ -65,6 +65,7 @@ struct LoopNest {
   ForVec parallel;     // The loops whose ForKind are kParallel
   ForVec vectorize;    // The loops whose ForKind are kVectorized
   ForVec unroll;       // The loops whose ForKind are kUnrolled
+  ForVec serial;       // The loops whose ForKind are kSerial
   ForVec blockIdx_x;   // The loops whose ForKind are kThreadBinding to blockIdx.x
   ForVec blockIdx_y;   // The loops whose ForKind are kThreadBinding to blockIdx.y
   ForVec blockIdx_z;   // The loops whose ForKind are kThreadBinding to blockIdx.z
@@ -80,12 +81,14 @@ struct LoopNest {
     result.insert(result.end(), this->vectorize.begin(), this->vectorize.end());
     result.insert(result.end(), this->unroll.begin(), this->unroll.end());
     result.insert(result.end(), this->vthread.begin(), this->vthread.end());
+    result.insert(result.end(), this->serial.begin(), this->serial.end());
     return result;
   }
 
   int64_t GetLoopsExtentProd(ForVec loops) {
     int64_t result = 1;
     for(auto l: loops) {
+      VLOG(0) << l->extent;
       result = result * (*GetLoopIntExtent(l));
     }
     return result;
@@ -106,6 +109,7 @@ struct LoopNest {
       this->prod *= *extent;
     }
     this->loops.push_back(loop);
+    VLOG(0) << static_cast<int>(loop->kind);
     if ((*auto_unroll_attr = utils::GetPragmaAutoUnroll(loop)) > 0) {
       this->auto_unroll.push_back(*auto_unroll_attr);
     }
@@ -116,7 +120,9 @@ struct LoopNest {
       ref_loops = &vectorize;
     } else if (loop->kind == ForKind::kUnrolled) {
       ref_loops = &unroll;
-    } else if (loop->kind == ForKind::kThreadBinding) {
+    } else if(loop->kind == ForKind::kSerial) {
+      ref_loops = &serial;
+    }else if (loop->kind == ForKind::kThreadBinding) {
       std::string thread_tag = loop->thread_binding.value()->thread_tag;
       if (thread_tag == "blockIdx.x") {
         ref_loops = &blockIdx_x;

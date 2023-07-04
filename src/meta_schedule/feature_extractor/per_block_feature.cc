@@ -86,6 +86,44 @@ namespace group0 {
     };
 };
 
+
+namespace group1 {
+    /*! \brief extract the feature of load and store for each block*/
+    struct Feature {
+        struct LaunchInfo
+        {
+            // load global to shared features (Assembly code: LDG2S)
+            int64_t num_warps = 0;                      // The number of warps within a block
+            int64_t num_blocks = 0;                     // The number of blocks
+            int64_t num_allocated_shared_memory = 0;    // The allocated shared memory within a block, in KB
+            int64_t num_tensor_register = 0;            // The number of Tensor core registers allocated, in Bytes
+            int64_t num_register_per_thread = 0;        // The allocated register
+            
+            // Hardware related info
+            int64_t num_streaming_processors = 1;       // The number of streaming processors for the GPU
+            int64_t num_of_partitions_per_sm = 4;       // The number of SM partitions for each SM
+            int64_t L2_cache_size = 1;                  // The shared L2 cache size of the GPU
+            int64_t maximum_shared_memory_size = 1;     // The maximum shared memory / L1 for each SM
+            const int64_t kSuitableWarpsPerBlock = 8;   // A heuristic number, we think 8 warps is a maximum value
+            const int64_t kMaximumRegisterPerBlock = 65536;
+
+            static constexpr int64_t kCount = 4;
+            LaunchInfo() = default;
+            LaunchInfo(const PrimFuncNode* func) {}
+
+            void Export(std::vector<double>* v) const {
+                double vs [] = {
+                    num_warps / (float)kSuitableWarpsPerBlock, 
+                    num_blocks / (float)(num_streaming_processors * num_of_partitions_per_sm),
+                    num_allocated_shared_memory / (float)(maximum_shared_memory_size), 
+                    num_tensor_register * num_warps / (float)kMaximumRegisterPerBlock
+                };
+                v->insert(v->end(), std::begin(vs), std::end(vs));
+            }
+        };
+    };
+};
+
 } // namespace transform
 
 
@@ -166,25 +204,37 @@ private:
         if (store->value->IsInstance<IntImmNode>() || store->value->IsInstance<FloatImmNode>()) {
             return;
         }
-        // 1. Count global memory -> shared memory
-        
         auto dst_buff = store->buffer;
         auto src_buff = LoadVarExtractor::Extract(store->value);
-        auto it_dst = shared_memory_map_.find(dst_buff->data);
-        auto it_src = func_buffer_map_.find(src_buff->data);
-        VLOG(0) << "Find dst_buff: " << dst_buff->data << "src_buff: " << src_buff;
-        if (it_dst!=shared_memory_map_.end() && it_src != func_buffer_map_.end()) {
-            // VLOG(0) << "Store to shared memory " << (*it_dst).first;
-            // VLOG(0) << "Load from global memory " << (*it_src).first;
-            auto prod = loop_nest_.GetUnBindLoopsExtentProd();
-            VLOG(0) << " global memory: " << (*it_src).first << 
-                " -> shared memory: " << (*it_dst).first << " prod " << prod;
+        // 1. Count global memory -> shared memory
+        {
+            auto it_dst = shared_memory_map_.find(dst_buff->data);
+            auto it_src = func_buffer_map_.find(src_buff->data);
+            VLOG(0) << "Find dst_buff: " << dst_buff->data << "src_buff: " << src_buff;
+            if (it_dst!=shared_memory_map_.end() && it_src != func_buffer_map_.end()) {
+                // VLOG(0) << "Store to shared memory " << (*it_dst).first;
+                // VLOG(0) << "Load from global memory " << (*it_src).first;
+                auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                VLOG(0) << " global memory: " << (*it_src).first << 
+                    " -> shared memory: " << (*it_dst).first << " prod " << prod;
+            }
         }
         // 2. Count shared memory -> tensor core register
+        {
 
+        }
         // 3. Count tensor core register -> shared memory
 
         // 4. Count shared memory -> global memory
+        {
+            auto it_dst = func_buffer_map_.find(src_buff->data);
+            auto it_src = shared_memory_map_.find(dst_buff->data);
+            if ((it_dst != func_buffer_map_.end()) && (it_src != shared_memory_map_.end())) {
+                auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                VLOG(0) << "shared memory: " << (*it_src).first << " -> global memory: " <<
+                   (*it_dst).first << " prod " << prod;
+            }
+        }
         
         this->VisitExpr(store->value);
     }

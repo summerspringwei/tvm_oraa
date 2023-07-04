@@ -123,6 +123,7 @@ def _worker_func(
     artifact_path: str,
     device_type: str,
     args_info: T_ARG_INFO_JSON_OBJ_LIST,
+    device_id: Optional[int]
 ) -> List[float]:
     f_alloc_argument: T_ALLOC_ARGUMENT = get_global_func_with_default_on_worker(
         _f_alloc_argument, default_alloc_argument
@@ -147,7 +148,9 @@ def _worker_func(
             rt_mod = tvm.runtime.load_module(artifact_path)
         # Step 2: Allocate input arguments
         with Profiler.timeit("LocalRunner/alloc_argument"):
-            device = tvm.runtime.device(dev_type=device_type, dev_id=0)
+            if device_id is None:
+                device_id = 0
+            device = tvm.runtime.device(dev_type=device_type, dev_id=device_id)
             repeated_args: List[T_ARGUMENT_LIST] = f_alloc_argument(
                 device,
                 args_info,
@@ -242,6 +245,7 @@ class LocalRunner(PyRunner):
         f_run_evaluator: Union[T_RUN_EVALUATOR, str, None] = None,
         f_cleanup: Union[T_CLEANUP, str, None] = None,
         initializer: Optional[Callable[[], None]] = None,
+        device_id: Optional[int] = 0
     ) -> None:
         """Constructor
 
@@ -272,6 +276,7 @@ class LocalRunner(PyRunner):
         self.f_alloc_argument = f_alloc_argument
         self.f_run_evaluator = f_run_evaluator
         self.f_cleanup = f_cleanup
+        self.device_id = device_id
 
         logger.info("LocalRunner: max_workers = 1")
         self.pool = PopenPoolExecutor(
@@ -295,6 +300,7 @@ class LocalRunner(PyRunner):
                 str(runner_input.artifact_path),
                 str(runner_input.device_type),
                 tuple(arg_info.as_json() for arg_info in runner_input.args_info),
+                self.device_id
             )
             try:
                 result: List[float] = future.result()
