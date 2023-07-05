@@ -304,6 +304,7 @@ class LocalRunner(PyRunner):
             )
             try:
                 result: List[float] = future.result()
+                print("local_runner.py:307", result)
                 error_message: str = None
             except TimeoutError:
                 result = None
@@ -311,7 +312,9 @@ class LocalRunner(PyRunner):
             except Exception as exception:  # pylint: disable=broad-except
                 result = None
                 error_message = "LocalRunner: An exception occurred\n" + str(exception)
+                
             local_future = LocalRunnerFuture(res=result, error_message=error_message)
+            print("local_runner.py:316", error_message)
             results.append(local_future)  # type: ignore
         return results
 

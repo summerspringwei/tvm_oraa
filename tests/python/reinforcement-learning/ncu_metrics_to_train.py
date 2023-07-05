@@ -9,20 +9,6 @@ we only extract tour kinds of features:
     (4) Compute related info, like number of FMA instructions
 """
 
-metrics = [
-    "derived__memory_l1_wavefronts_shared_excessive [byte]",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-]
-
 device_attrs = [
     "device__attribute_fb_bus_width",
     "device__attribute_fbp_count",
@@ -55,8 +41,8 @@ device_attrs = [
 
 
 launch_metrics = [
-    "Grid Size",
-    "Block Size",
+    "launch__grid_size",
+    "launch__block_size",
     "launch__occupancy_limit_blocks [block]",
     "launch__occupancy_limit_registers [block]",
     "launch__occupancy_limit_shared_mem [block]",
@@ -72,7 +58,6 @@ dram_attrs = [
     "dram__bytes.sum.per_second [Gbyte/second]",
     "dram__bytes_read.sum [Mbyte]",
     "dram__bytes_read.sum.pct_of_peak_sustained_elapsed [%]",
-    "dram__bytes_write.sum [byte]",
     "dram__cycles_active.avg.pct_of_peak_sustained_elapsed [%]",
     "dram__cycles_elapsed.avg.per_second [cycle/nsecond]",
     "dram__sectors_read.sum [sector]",
@@ -81,15 +66,19 @@ dram_attrs = [
 
 memory_section_attrs = [
     # Shared memory
-    "smsp__sass_inst_executed_op_shared_ld",                        # Shared memory load
-    "smsp__sass_inst_executed_op_shared_st",                        # Shared memory store
-    "smsp__inst_executed_op_ldsm",                                  # of warp instructions executed: LDSM
-    "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld",         # bank conflicts of load shared memory
-    "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st",         # bank conflicts of store shared memory
-    "l1tex__data_bank_conflicts_pipe_lsu_mem_global_op_ld",         # bank conflicts of load global memory
-    "l1tex__data_bank_conflicts_pipe_lsu_mem_global_op_red",        # bank conflicts of reduce global memory
-    "l1tex__data_bank_conflicts_pipe_lsu_mem_global_op_st",         # bank conflicts of store global memory
-    "l1tex__data_bank_conflicts_pipe_lsu_mem_global_op_atom",       # bank conflicts of atomic operation global memory
+    "sass__inst_executed_shared_loads [inst]",                      # Shared memory load
+    "sass__inst_executed_shared_stores [inst]",                     # Shared memory store
+    "smsp__inst_executed_op_ldsm.sum [inst]",
+    "smsp__inst_executed_op_shared_atom.sum [inst]",
+    "smsp__inst_executed_op_global_red.sum [inst]",                        
+    "smsp__inst_executed_op_ldsm.sum.pct_of_peak_sustained_elapsed [%]",                                  # of warp instructions executed: LDSM
+    "l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum",           # Total bank conflicts
+    "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_atom.sum",   # bank conflicts of atomic operations
+    "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum",	    # bank conflicts of load global memory
+    "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum",     # bank conflicts of store shared memory
+    # "l1tex__data_bank_conflicts_pipe_lsu_mem_global_op_red",        # bank conflicts of reduce global memory
+    # "l1tex__data_bank_conflicts_pipe_lsu_mem_global_op_st",         # bank conflicts of store global memory
+    # "l1tex__data_bank_conflicts_pipe_lsu_mem_global_op_atom",       # bank conflicts of atomic operation global memory
     "l1tex__t_requests_pipe_lsu_mem_global_op_ld.sum [request]",
     "sass__inst_executed_global_loads [inst]",                      # Global memory load
     "sass__inst_executed_global_stores [inst]",                     # Global memory store
@@ -104,14 +93,22 @@ memory_section_attrs = [
 
 # For now we do not consider computation ops
 compute_inst_attrs = [
-    "smsp__inst_executed_op_branch.sum [inst]",
     "sm__inst_executed_pipe_cbu_pred_on_any.avg.pct_of_peak_sustained_elapsed [%]",
     "sm__inst_executed_pipe_fma_type_fp16.avg.pct_of_peak_sustained_active [%]",
     "sm__inst_executed_pipe_fp64.avg.pct_of_peak_sustained_active [%]",
     "sm__inst_executed_pipe_ipa.avg.pct_of_peak_sustained_elapsed [%]",
     "sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active [%]",
-    "sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_elapsed [%]"
+    "sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_elapsed [%]",
     "sm__inst_executed_pipe_tensor_op_hmma.avg.pct_of_peak_sustained_active [%]",
+]
+
+source_metrics = [
+    "smsp__inst_executed_op_branch.sum [inst]",
+]
+
+y_labels = [
+    "gpc__cycles_elapsed.max [cycle]",
+    "gpu__time_duration.sum [usecond]",
 ]
 
 fbpa_attrs = [
@@ -134,9 +131,6 @@ fbpa_attrs = [
     "",
 ]
 
-source_metrics = [
-    "smsp__branch_targets_threads_divergent",
-]
 
 questions = [
     "derived__avg_thread_executed [thread]",
@@ -165,13 +159,7 @@ questions = [
     "smsp__inst_executed.avg [inst]", # important
     "smsp__pcsamp_warps_issue_stalled_tex_throttle [warp]", # Important
     "smsp__sass_l1tex_data_pipe_lsu_wavefronts_mem_shared_op_st.sum.pct_of_peak_sustained_elapsed [%]",
-    "thread_inst_executed [inst]",
-    "",
-    "",
+    "thread_inst_executed [inst]"
 ]
 
 
-y_labels = [
-    "gpc__cycles_elapsed.max [cycle]",
-    "gpu__time_duration.sum [usecond]",
-]

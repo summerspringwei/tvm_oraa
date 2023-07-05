@@ -264,6 +264,8 @@ def load_runner_input_and_run(work_dir_path, device_id = 0):
     if os.path.exists(build_file):
         workload_build_files.append("build_results.pkl")
     for build_file in workload_build_files:
+        if build_file != "workload_5_build_results.pkl":
+            continue
         with open(os.path.join(work_dir_path, build_file), 'rb') as f:
             runner_inputs_arr = pickle.load(f)
             print(f.name)
@@ -276,7 +278,6 @@ def load_runner_input_and_run(work_dir_path, device_id = 0):
         runner_result = [r.result().run_secs for r in runner_feature]
         print(runner_result)
         print(len(runner_result))
-        break
 
 
 if __name__ == '__main__':
