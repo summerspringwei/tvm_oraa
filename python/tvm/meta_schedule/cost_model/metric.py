@@ -94,3 +94,24 @@ def top_k_intersection_count(preds: torch.Tensor, label: torch.Tensor, k: int = 
     set_preds_indices, set_label_indices = set(top_k_preds_indices.tolist()), set(top_k_label_indices.tolist())
     out = set_preds_indices.intersection(set_label_indices)
     return len(out)
+
+
+def top_one_performance_gap(preds: torch.Tensor, label: torch.Tensor):
+    """Evaluate the performance gap between top-1 of preds and top-1 of label
+
+    Parameters
+    ----------
+    preds: torch.Tensor
+        The prediction scores of the cost model
+    label: torch.Tensor
+        The true scores
+    
+    Returns
+    -------
+    degration: Performance degration
+    """
+    _, preds_indices = torch.sort(preds, descending=True)
+    _, label_indices = torch.sort(label, descending=True)
+    top_1_preds_indices, top_1_label_indices = preds_indices[0], label_indices[0]
+    degration = (label[top_1_label_indices] - label[top_1_preds_indices]) / label[top_1_label_indices]
+    return degration

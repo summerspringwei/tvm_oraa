@@ -264,7 +264,7 @@ def load_runner_input_and_run(work_dir_path, device_id = 0):
     if os.path.exists(build_file):
         workload_build_files.append("build_results.pkl")
     for build_file in workload_build_files:
-        if build_file != "workload_5_build_results.pkl":
+        if build_file != "workload_7_build_results.pkl":
             continue
         with open(os.path.join(work_dir_path, build_file), 'rb') as f:
             runner_inputs_arr = pickle.load(f)
@@ -282,15 +282,16 @@ def load_runner_input_and_run(work_dir_path, device_id = 0):
 
 if __name__ == '__main__':
     # folder_path = "saved_work_dir/((bert_large,[(1,64)]),cuda)_ms_workdir/"
-    folder_path = "saved_work_dir/((bert_base,[(1,128)]),cuda)_ms_workdir/"
+    # folder_path = "saved_work_dir/((bert_base,[(1,128)]),cuda)_ms_workdir/"
+    folder_path = "saved_work_dir/((bert_large,[(1,256)]),cuda)_ms_workdir/"
     # folder_path = "saved_work_dir/feature_extractor_test"
     # load_tuning_records_and_save_features(folder_path)
-    # load_feature_to_train(folder_path, 
-    #                       state_to_load="saved_work_dir/((bert_large,[(1,256)]),cuda)_ms_workdir/mlp_model_state",
-    #                       target="nvidia/geforce-rtx-3090")
+    load_feature_to_train(folder_path, 
+                          state_to_load="saved_work_dir/((bert_large,[(1,256)]),cuda)_ms_workdir/mlp_model_state",
+                          target="nvidia/geforce-rtx-3090")
     # load_tuning_records_and_train(folder_path)
     # logger.setLevel(logging.DEBUG)
     # logger.warn("aaa")
     # load_tuning_records_to_runer_inputs("saved_work_dir/feature_extractor_test")
     # build_tuning_records_to_runer_inputs(folder_path, target="nvidia/geforce-rtx-3090")
-    load_runner_input_and_run(folder_path, device_id=1)
+    # load_runner_input_and_run(folder_path, device_id=1)

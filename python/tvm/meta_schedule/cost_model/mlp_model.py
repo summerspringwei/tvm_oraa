@@ -280,8 +280,8 @@ def lambda_rank_loss(  # pylint: disable=too-many-locals
         The lambda rank loss.
     """
     device = preds.device
-    logger.info(preds.shape)
-    logger.info(labels.shape)
+    # logger.info(preds.shape)
+    # logger.info(labels.shape)
     # Handle preds and label dim 0
     def dim0_to_dim1(t: torch.Tensor):
         if t.dim() > 0:
@@ -719,6 +719,8 @@ class SegmentSumMLPTrainer:
             data[2].to(self.device),
         )
         self.optimizer.zero_grad()
+        if torch.cuda.is_available():
+            self.state.model.cuda()
         pred_results = self.state.model(segment_sizes, features)
         # validate
         count = pairwise_rank_error_count(pred_results.clone().detach(), gt_results.clone().detach())
@@ -726,6 +728,8 @@ class SegmentSumMLPTrainer:
         logger.info(f"pairwise_rank_error_count@{len(gt_results)} {count}")
         logger.info(f"top_k_intersection_count@{len(gt_results)} {top_k_count}")
         loss = lambda_rank_loss(pred_results, gt_results)
+        if torch.cuda.is_available():
+            loss.cuda()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.state.model.parameters(), self.grad_clip_norm)
         self.optimizer.step()
@@ -831,6 +835,7 @@ class SegmentSumMLPTrainer:
             train_loss = None
             for batch, data in enumerate(train_loader):
                 train_loss = self.train_step(data, batch, train_loss)
+                print(f"train_loss: {train_loss}")
             self.scheduler.step()
             # testing
             if epoch % self.test_interval == 0:
@@ -850,6 +855,11 @@ class SegmentSumMLPTrainer:
                     np.array(test_scores)[:, 1].mean(),
                     np.array(test_scores)[:, 2].mean(),
                 )
+                print("Average test loss: %6f, top1 score: %5f, top5 score: %5f, top10 score: %5f",
+                    test_loss,
+                    np.array(test_scores)[:, 0].mean(),
+                    np.array(test_scores)[:, 1].mean(),
+                    np.array(test_scores)[:, 2].mean(),)
                 if test_loss < min_test_loss:
                     min_test_loss = test_loss
                     torch.save(self.state.model.state_dict(), model_cache_path)

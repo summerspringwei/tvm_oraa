@@ -33,11 +33,19 @@ namespace group0 {
     struct Feature {
         struct LoadStoreOps
         {
+            // The number of warps(memory transactions) to be executed
+            // The stride for consucutive threads when load from global memory (sizeof(T) is best, otherwise real value)
+            // The stride for consucutive thread when store to shared memory
             // load global to shared features (Assembly code: LDG2S)
-            int64_t load_global_to_shared_bytes = 0;        // The number of bytes load from global memory to shared memory
-            int64_t load_global_to_shared_transactions = 0;  // The number of warps(memory transactions) to be executed
-            int64_t load_stride_for_global = 0;            // The stride for consucutive threads when load from global memory (sizeof(T) is best, otherwise real value)
-            int64_t store_stride_for_shared = 0;            // The stride for consucutive thread when store to shared memory
+            int64_t num_load_global_to_shared = 0;        // The number of bytes load from global memory to shared memory
+            int64_t num_load_shared_to_register = 0;      
+            int64_t num_store_register_to_shared = 0;
+            int64_t num_store_shared_to_global = 0;
+            int64_t num_register_to_global = 0;
+            int64_t num_global_to_register = 0;
+            int64_t num_register_to_register = 0;
+            int64_t num_shared_to_shared = 0;
+            int64_t num_global_to_global = 0;
             // Store from shared to global (Assembly Code: STG.EXXX)
             int64_t store_shared_to_global_bytes = 0;
             int64_t store_shared_to_global_transactions = 0;
@@ -55,35 +63,41 @@ namespace group0 {
 
             void Export(std::vector<double>* v) const {
                 double vs [] = {
-                    load_global_to_shared_bytes, load_global_to_shared_transactions,
-                    load_stride_for_global, store_stride_for_shared,
-                    store_shared_to_global_bytes, store_shared_to_global_transactions,
-                    store_stride_for_global, load_stride_for_shared
+                    num_load_global_to_shared, num_load_shared_to_register, 
+                    num_store_shared_to_global, num_store_register_to_shared,
+                    num_register_to_global, num_global_to_register,
+                    num_register_to_register, num_shared_to_shared,
+                    num_global_to_global, store_shared_to_global_bytes,
+                    store_shared_to_global_transactions, store_stride_for_global,
+                    load_stride_for_shared
                 };
                 v->insert(v->end(), std::begin(vs), std::end(vs));
             }
         };
+
+        LoadStoreOps LoadStoreOps_;
+
     };
 
-    class LoadStoreCounter : private StmtVisitor {
-        std::stack<ForNode*> loop_stack = {};
-        private:
-        void VisitStmt_(const ForNode* loop) final {
-            int64_t auto_unroll;
-            ForVec* for_vec = loop_nest_.Push(loop, &auto_unroll);
-            StmtVisitor::VisitStmt_(loop);
-            loop_nest_.Pop(loop, for_vec, auto_unroll);
-        }
+    // class LoadStoreCounter : private StmtVisitor {
+    //     std::stack<ForNode*> loop_stack = {};
+    //     private:
+    //     void VisitStmt_(const ForNode* loop) final {
+    //         int64_t auto_unroll;
+    //         ForVec* for_vec = loop_nest_.Push(loop, &auto_unroll);
+    //         StmtVisitor::VisitStmt_(loop);
+    //         loop_nest_.Pop(loop, for_vec, auto_unroll);
+    //     }
 
-        void VisitStmt_(const BlockNode* block) final {
-            StmtVisitor::VisitStmt_(block);
-            for(auto buffer: block->alloc_buffers){
+    //     void VisitStmt_(const BlockNode* block) final {
+    //         StmtVisitor::VisitStmt_(block);
+    //         for(auto buffer: block->alloc_buffers){
 
-            }
-        }
-        arith::Analyzer analyzer_;
-        LoopNest loop_nest_ = {};
-    };
+    //         }
+    //     }
+    //     arith::Analyzer analyzer_;
+    //     LoopNest loop_nest_ = {};
+    // };
 };
 
 
@@ -124,15 +138,18 @@ namespace group1 {
     };
 };
 
+
+
 } // namespace transform
 
 
 /*! \brief The feature extracted */
 struct Feature {
-  const BufferNode* buffer = nullptr;
-  int buffer_order = -1;
-  std::unique_ptr<transform::group0::Feature> group1 = nullptr;
-  bool operator<(const Feature& other) const { return buffer_order < other.buffer_order; }
+//   const BufferNode* buffer = nullptr;
+//   int buffer_order = -1;
+  std::unique_ptr<transform::group0::Feature> group0 = nullptr;
+  std::unique_ptr<transform::group1::Feature> group1 = nullptr;
+//   bool operator<(const Feature& other) const { return buffer_order < other.buffer_order; }
 };
 
 class LoadVarExtractor : private ExprVisitor {
@@ -153,29 +170,34 @@ class LoadVarExtractor : private ExprVisitor {
     Array<PrimExpr> indices_;
 };
 
-class PerBlockFeatureCollector : private StmtVisitor {
+
+class PerBlockFeatureCollector : public tir::StmtExprVisitor {
     public:
     static std::vector<Feature> Collect(const IRModule& mod) {
-    PerBlockFeatureCollector collector(true);
-    for (const auto& kv : mod->functions) {
-      if (const PrimFuncNode* func = kv.second.as<PrimFuncNode>()) {
-        collector.clear();
-        collector.set_func_buffer_map(func->buffer_map);
-        for(auto it: func->buffer_map) {
-            VLOG(0) << it.first << " " << it.second;
+        PerBlockFeatureCollector collector(true);
+        for (const auto& kv : mod->functions) {
+            if (const PrimFuncNode* func = kv.second.as<PrimFuncNode>()) {
+                collector.clear();
+                collector.set_func_buffer_map(func->buffer_map);
+                for(auto it: func->buffer_map) {
+                    VLOG(0) << it.first << " " << it.second;
+                }
+                collector.VisitStmt(func->body);
+                VLOG(0) << collector.feature_.group0->LoadStoreOps_.num_load_global_to_shared 
+                    << " " << collector.feature_.group0->LoadStoreOps_.num_load_shared_to_register
+                    << " " << collector.feature_.group0->LoadStoreOps_.num_store_register_to_shared
+                    << " " << collector.feature_.group0->LoadStoreOps_.num_store_shared_to_global;
+            }
         }
-        collector(func->body);
-      }
-    }
-    std::vector<Feature> result;
-    // result.reserve(collector.buffer_features_.size());
-    // for (auto& it : collector.buffer_features_) {
-    //   Feature& feature = it.second;
-    //     result.push_back(std::move(feature));
-    //   }
-    // }
-    // std::sort(result.begin(), result.end());
-    return result;
+        std::vector<Feature> result;
+        // result.reserve(collector.buffer_features_.size());
+        // for (auto& it : collector.buffer_features_) {
+        //   Feature& feature = it.second;
+        //     result.push_back(std::move(feature));
+        //   }
+        // }
+        // std::sort(result.begin(), result.end());
+        return result;
   }
     void clear() {
         this->func_buffer_map_.clear();
@@ -190,7 +212,10 @@ class PerBlockFeatureCollector : private StmtVisitor {
         }
     }
 
-    PerBlockFeatureCollector(bool extract_hardware):extract_hardware_(extract_hardware) {}
+    PerBlockFeatureCollector(bool extract_hardware):extract_hardware_(extract_hardware) {
+        feature_.group0 = std::make_unique<transform::group0::Feature>();
+        feature_.group1 = std::make_unique<transform::group1::Feature>();
+    }
 
 private:
     void VisitStmt_(const ForNode* loop) final {
@@ -201,6 +226,7 @@ private:
     }
 
     void VisitStmt_(const BufferStoreNode* store) final {
+        // For now, we only consider the case that there is no if condition in for loops
         if (store->value->IsInstance<IntImmNode>() || store->value->IsInstance<FloatImmNode>()) {
             return;
         }
@@ -215,22 +241,26 @@ private:
                 // VLOG(0) << "Store to shared memory " << (*it_dst).first;
                 // VLOG(0) << "Load from global memory " << (*it_src).first;
                 auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                feature_.group0->LoadStoreOps_.num_load_global_to_shared += prod;
                 VLOG(0) << " global memory: " << (*it_src).first << 
                     " -> shared memory: " << (*it_dst).first << " prod " << prod;
             }
         }
-        // 2. Count shared memory -> tensor core register
+        // 2. Count shared memory -> local memory (is often promoted to register by compiler)
         {
 
         }
-        // 3. Count tensor core register -> shared memory
+        // 3. Count local memory -> shared memory
+        {
 
+        }
         // 4. Count shared memory -> global memory
         {
-            auto it_dst = func_buffer_map_.find(src_buff->data);
-            auto it_src = shared_memory_map_.find(dst_buff->data);
+            auto it_dst = func_buffer_map_.find(dst_buff->data);
+            auto it_src = shared_memory_map_.find(src_buff->data);
             if ((it_dst != func_buffer_map_.end()) && (it_src != shared_memory_map_.end())) {
                 auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                feature_.group0->LoadStoreOps_.num_store_shared_to_global += prod;
                 VLOG(0) << "shared memory: " << (*it_src).first << " -> global memory: " <<
                    (*it_dst).first << " prod " << prod;
             }
@@ -238,17 +268,86 @@ private:
         
         this->VisitExpr(store->value);
     }
+    
+    void VisitExpr_(const CallNode* call) {
+        VLOG(0) << call->op << " " << call->args[0];
+        if(call->op.same_as(builtin::tvm_load_matrix_sync())) {
+            // Get dst var
+            auto dst = Downcast<tir::Var>(call->args[0]);
+            auto tile_m = Downcast<IntImm>(call->args[1]);
+            auto tile_n = Downcast<IntImm>(call->args[2]);
+            auto tile_k = Downcast<IntImm>(call->args[3]);
+            auto call_access = Downcast<Call>(call->args[5]);
+            if(call_access->op.same_as(builtin::tvm_access_ptr())){
+                auto src = Downcast<Var>(call_access->args[1]);
+                // Count Load from shared memory to registers
+                {
+                    auto it_dst = tensor_register_map_.find(dst);
+                    auto it_src = shared_memory_map_.find(src);
+                    if(it_dst != tensor_register_map_.end() && it_src != shared_memory_map_.end()){
+                        auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                        auto name_hint = std::string((*it_dst).first->name_hint.c_str());
+                        {
+                            if (name_hint.find("matrix_a") != std::string::npos) {
+                                feature_.group0->LoadStoreOps_.num_load_shared_to_register += (prod * tile_m->value * tile_k->value);
+                            } else if (name_hint.find("matrix_b") != std::string::npos) {
+                                feature_.group0->LoadStoreOps_.num_load_shared_to_register += (prod * tile_n->value * tile_k->value);
+                            } else {
+                                LOG_ERROR << "Unrecognized name_hint: " << name_hint;
+                            }
+                        }
+                        VLOG(0) << "shared memory: " << (*it_src).first << " -> tensor register: " <<
+                            (*it_dst).first << " tile_m: " << tile_m->value << " tile_n: " << tile_n->value <<
+                            " tile_k: " << tile_k->value << " prod " << prod;
+                    }
+                }
+            }
+        }else if(call->op.same_as(builtin::tvm_store_matrix_sync())) {
+            // Get dst var
+            auto src = Downcast<tir::Var>(call->args[0]);
+            auto tile_m = Downcast<IntImm>(call->args[1]);
+            auto tile_n = Downcast<IntImm>(call->args[2]);
+            auto tile_k = Downcast<IntImm>(call->args[3]);
+            auto call_access = Downcast<Call>(call->args[5]);
+            if(call_access->op.same_as(builtin::tvm_access_ptr())){
+                auto dst = Downcast<Var>(call_access->args[1]);
+                // Count Load from shared memory to registers
+                {
+                    auto it_dst = shared_memory_map_.find(dst);
+                    auto it_src = tensor_register_map_.find(src);
+                    if(it_dst != shared_memory_map_.end() && it_src != tensor_register_map_.end()){
+                        auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                        auto name_hint = std::string((*it_src).first->name_hint.c_str());
+                        {
+                            if (name_hint.find("accumulator") != std::string::npos) {
+                                feature_.group0->LoadStoreOps_.num_store_register_to_shared += (prod * tile_m->value * tile_n->value);
+                            } else {
+                                LOG_ERROR << "Unrecognized name_hint: " << name_hint;
+                            }
+                        }
+                        VLOG(0) << "tensor register: " << (*it_src).first << " -> shared memory: " <<
+                            (*it_dst).first << " tile_m: " << tile_m->value << " tile_n: " << tile_n->value <<
+                            " tile_k: " << tile_k->value << " prod " << prod;
+                    }
+                }
+            }
+        }
+    }
+
+    // void VisitStmt_(const SeqStmtNode* stmts){
+    //     for(auto stmt: stmts->seq) {
+    //         VLOG(0) << PrettyPrint(stmt) << std::endl;
+    //         StmtExprVisitor::VisitStmt_(stmt);
+    //     }
+    // }
+
+    // void VisitStmt_(const EvaluateNode* op) {
+    //     VLOG(0) << PrettyPrint(op->value) << std::endl;
+    // }
 
     // void VisitStmt_(const DeclBufferNode* op) {
     //     this->VisitStmt(op->body);
     // }
-
-    void VisitStmt_(const BlockNode* block) final {
-        StmtVisitor::VisitStmt_(block);
-        for (const Buffer& buffer : block->alloc_buffers) {
-            HandleBufferAlloc(buffer);
-        }
-    }
 
     void VisitStmt_(const AllocateNode* op) {
         const auto* ptr_type = op->buffer_var->type_annotation.as<PointerTypeNode>();
@@ -270,6 +369,13 @@ private:
         VLOG(0) << PrettyPrint(buffer).c_str();
     }
 
+    void VisitStmt_(const BlockNode* block) final {
+        StmtVisitor::VisitStmt_(block);
+        for (const Buffer& buffer : block->alloc_buffers) {
+            HandleBufferAlloc(buffer);
+        }
+    }
+
     std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> local_memory_map_;
     std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> tensor_register_map_;
     std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> shared_memory_map_;
@@ -283,6 +389,7 @@ private:
     arith::Analyzer analyzer_;
     LoopNest loop_nest_ = {};
     bool extract_hardware_;
+    Feature feature_;
 };
 
 } // namespace tir

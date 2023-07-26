@@ -66,7 +66,7 @@ def load_tuning_records_and_save_features(work_dir_path):
             mead_sec = np.mean(run_secs)
             run_secs_list.append(mead_sec)
         # run_secs_list = [record.run_secs for record in record_list]
-        features = extractor.extract_from(tune_context, candidate_arr)
+        features = extractor.extract_from(tune_context, candidate_arr[:1])
         exit(0)
         features = [f.numpy() for f in features]
         np.save(os.path.join(work_dir_path, f"workload_{idx}_features_run_secs"), 
@@ -89,5 +89,6 @@ def test_single():
 
 if __name__ == '__main__':
     # folder_path = "saved_work_dir/matmul_m384k768n768_from_scratch_mlp_with_rank_error_count"
-    folder_path = "saved_work_dir/feature_extractor_test"
+    # folder_path = "saved_work_dir/feature_extractor_test"
+    folder_path = "saved_work_dir/feature_extractor_test_64/"
     load_tuning_records_and_save_features(folder_path)

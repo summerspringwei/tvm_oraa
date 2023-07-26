@@ -20,4 +20,4 @@ The tvm.meta_schedule.cost_model package.
 from .cost_model import CostModel, PyCostModel
 from .random_model import RandomModel
 from .xgb_model import XGBModel
-from .metric import pairwise_rank_error_count, top_k_intersection_count
+from .metric import pairwise_rank_error_count, top_k_intersection_count, top_one_performance_gap
