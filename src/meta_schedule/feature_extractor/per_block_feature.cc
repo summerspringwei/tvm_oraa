@@ -138,13 +138,11 @@ namespace group1 {
     };
 };
 
-
-
 } // namespace transform
 
 
 /*! \brief The feature extracted */
-struct Feature {
+struct BlockFeature {
 //   const BufferNode* buffer = nullptr;
 //   int buffer_order = -1;
   std::unique_ptr<transform::group0::Feature> group0 = nullptr;
@@ -171,9 +169,38 @@ class LoadVarExtractor : private ExprVisitor {
 };
 
 
+class LaunchDim {
+public:
+    PrimExpr threadIdx_x_ext = Integer(1);
+    PrimExpr threadIdx_y_ext = Integer(1);
+    PrimExpr threadIdx_z_ext = Integer(1);
+    PrimExpr blockIdx_x_ext = Integer(1);
+    PrimExpr blockIdx_y_ext = Integer(1);
+    PrimExpr blockIdx_z_ext = Integer(1);
+
+    PrimExpr GetNumThreads() const {
+        return threadIdx_x_ext * threadIdx_y_ext * threadIdx_z_ext;
+    }
+
+    PrimExpr GetNumBlocks() const {
+        return blockIdx_x_ext * blockIdx_y_ext * blockIdx_z_ext;
+    }
+
+    PrimExpr GetNumWarps() const {
+        return ceildiv(threadIdx_x_ext * threadIdx_y_ext * threadIdx_z_ext, Integer(32));
+    }
+
+    std::string ToString() const {
+        std::ostringstream os;
+        os << "BlockDim(" << blockIdx_x_ext << "," << blockIdx_y_ext << "," << threadIdx_z_ext << "), ";
+        os << "ThreadDim(" << threadIdx_x_ext << "," << threadIdx_y_ext << "," << threadIdx_z_ext << ")";
+        return os.str();
+    }
+};
+
 class PerBlockFeatureCollector : public tir::StmtExprVisitor {
     public:
-    static std::vector<Feature> Collect(const IRModule& mod) {
+    static std::vector<BlockFeature> Collect(const IRModule& mod) {
         PerBlockFeatureCollector collector(true);
         for (const auto& kv : mod->functions) {
             if (const PrimFuncNode* func = kv.second.as<PrimFuncNode>()) {
@@ -187,9 +214,10 @@ class PerBlockFeatureCollector : public tir::StmtExprVisitor {
                     << " " << collector.feature_.group0->LoadStoreOps_.num_load_shared_to_register
                     << " " << collector.feature_.group0->LoadStoreOps_.num_store_register_to_shared
                     << " " << collector.feature_.group0->LoadStoreOps_.num_store_shared_to_global;
+                VLOG(0) << collector.launch_dim_.ToString();
             }
         }
-        std::vector<Feature> result;
+        std::vector<BlockFeature> result;
         // result.reserve(collector.buffer_features_.size());
         // for (auto& it : collector.buffer_features_) {
         //   Feature& feature = it.second;
@@ -231,19 +259,19 @@ private:
             return;
         }
         auto dst_buff = store->buffer;
+        auto dst_dtype = dst_buff->dtype;
         auto src_buff = LoadVarExtractor::Extract(store->value);
+        auto prod = loop_nest_.GetUnBindLoopsExtentProd();
         // 1. Count global memory -> shared memory
         {
             auto it_dst = shared_memory_map_.find(dst_buff->data);
             auto it_src = func_buffer_map_.find(src_buff->data);
-            VLOG(0) << "Find dst_buff: " << dst_buff->data << "src_buff: " << src_buff;
             if (it_dst!=shared_memory_map_.end() && it_src != func_buffer_map_.end()) {
-                // VLOG(0) << "Store to shared memory " << (*it_dst).first;
-                // VLOG(0) << "Load from global memory " << (*it_src).first;
-                auto prod = loop_nest_.GetUnBindLoopsExtentProd();
-                feature_.group0->LoadStoreOps_.num_load_global_to_shared += prod;
+                feature_.group0->LoadStoreOps_.num_load_global_to_shared += 
+                    (prod * launch_dim_.GetNumThreads().as<IntImmNode>()->value);
                 VLOG(0) << " global memory: " << (*it_src).first << 
-                    " -> shared memory: " << (*it_dst).first << " prod " << prod;
+                    " -> shared memory: " << (*it_dst).first << " prod " << prod 
+                    << " dtype " << dst_dtype << " " << dst_dtype.bytes();
             }
         }
         // 2. Count shared memory -> local memory (is often promoted to register by compiler)
@@ -259,10 +287,11 @@ private:
             auto it_dst = func_buffer_map_.find(dst_buff->data);
             auto it_src = shared_memory_map_.find(src_buff->data);
             if ((it_dst != func_buffer_map_.end()) && (it_src != shared_memory_map_.end())) {
-                auto prod = loop_nest_.GetUnBindLoopsExtentProd();
-                feature_.group0->LoadStoreOps_.num_store_shared_to_global += prod;
+                feature_.group0->LoadStoreOps_.num_store_shared_to_global += 
+                    (prod * launch_dim_.GetNumThreads().as<IntImmNode>()->value);
                 VLOG(0) << "shared memory: " << (*it_src).first << " -> global memory: " <<
-                   (*it_dst).first << " prod " << prod;
+                   (*it_dst).first << " prod " << prod
+                   << " dtype " << dst_dtype << " " << dst_dtype.bytes();
             }
         }
         
@@ -281,25 +310,23 @@ private:
             if(call_access->op.same_as(builtin::tvm_access_ptr())){
                 auto src = Downcast<Var>(call_access->args[1]);
                 // Count Load from shared memory to registers
-                {
-                    auto it_dst = tensor_register_map_.find(dst);
-                    auto it_src = shared_memory_map_.find(src);
-                    if(it_dst != tensor_register_map_.end() && it_src != shared_memory_map_.end()){
-                        auto prod = loop_nest_.GetUnBindLoopsExtentProd();
-                        auto name_hint = std::string((*it_dst).first->name_hint.c_str());
-                        {
-                            if (name_hint.find("matrix_a") != std::string::npos) {
-                                feature_.group0->LoadStoreOps_.num_load_shared_to_register += (prod * tile_m->value * tile_k->value);
-                            } else if (name_hint.find("matrix_b") != std::string::npos) {
-                                feature_.group0->LoadStoreOps_.num_load_shared_to_register += (prod * tile_n->value * tile_k->value);
-                            } else {
-                                LOG_ERROR << "Unrecognized name_hint: " << name_hint;
-                            }
-                        }
-                        VLOG(0) << "shared memory: " << (*it_src).first << " -> tensor register: " <<
-                            (*it_dst).first << " tile_m: " << tile_m->value << " tile_n: " << tile_n->value <<
-                            " tile_k: " << tile_k->value << " prod " << prod;
+                auto it_dst = tensor_register_map_.find(dst);
+                auto it_src = shared_memory_map_.find(src);
+                if(it_dst != tensor_register_map_.end() && it_src != shared_memory_map_.end()){
+                    auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                    auto name_hint = std::string((*it_dst).first->name_hint.c_str());
+                    if (name_hint.find("matrix_a") != std::string::npos) {
+                        feature_.group0->LoadStoreOps_.num_load_shared_to_register += 
+                            (prod * tile_m->value * tile_k->value * launch_dim_.GetNumWarps().as<IntImmNode>()->value);
+                    } else if (name_hint.find("matrix_b") != std::string::npos) {
+                        feature_.group0->LoadStoreOps_.num_load_shared_to_register += 
+                            (prod * tile_n->value * tile_k->value * launch_dim_.GetNumWarps().as<IntImmNode>()->value);
+                    } else {
+                        LOG_ERROR << "Unrecognized name_hint: " << name_hint;
                     }
+                    VLOG(0) << "shared memory: " << (*it_src).first << " -> tensor register: " <<
+                        (*it_dst).first << " tile_m: " << tile_m->value << " tile_n: " << tile_n->value <<
+                        " tile_k: " << tile_k->value << " prod " << prod;
                 }
             }
         }else if(call->op.same_as(builtin::tvm_store_matrix_sync())) {
@@ -312,34 +339,51 @@ private:
             if(call_access->op.same_as(builtin::tvm_access_ptr())){
                 auto dst = Downcast<Var>(call_access->args[1]);
                 // Count Load from shared memory to registers
-                {
-                    auto it_dst = shared_memory_map_.find(dst);
-                    auto it_src = tensor_register_map_.find(src);
-                    if(it_dst != shared_memory_map_.end() && it_src != tensor_register_map_.end()){
-                        auto prod = loop_nest_.GetUnBindLoopsExtentProd();
-                        auto name_hint = std::string((*it_src).first->name_hint.c_str());
-                        {
-                            if (name_hint.find("accumulator") != std::string::npos) {
-                                feature_.group0->LoadStoreOps_.num_store_register_to_shared += (prod * tile_m->value * tile_n->value);
-                            } else {
-                                LOG_ERROR << "Unrecognized name_hint: " << name_hint;
-                            }
+                auto it_dst = shared_memory_map_.find(dst);
+                auto it_src = tensor_register_map_.find(src);
+                if(it_dst != shared_memory_map_.end() && it_src != tensor_register_map_.end()){
+                    auto prod = loop_nest_.GetUnBindLoopsExtentProd();
+                    auto name_hint = std::string((*it_src).first->name_hint.c_str());
+                    {
+                        if (name_hint.find("accumulator") != std::string::npos) {
+                            feature_.group0->LoadStoreOps_.num_store_register_to_shared += 
+                                (prod * tile_m->value * tile_n->value * launch_dim_.GetNumWarps().as<IntImmNode>()->value);
+                        } else {
+                            LOG_ERROR << "Unrecognized name_hint: " << name_hint;
                         }
-                        VLOG(0) << "tensor register: " << (*it_src).first << " -> shared memory: " <<
-                            (*it_dst).first << " tile_m: " << tile_m->value << " tile_n: " << tile_n->value <<
-                            " tile_k: " << tile_k->value << " prod " << prod;
                     }
+                    VLOG(0) << "tensor register: " << (*it_src).first << " -> shared memory: " <<
+                        (*it_dst).first << " tile_m: " << tile_m->value << " tile_n: " << tile_n->value <<
+                        " tile_k: " << tile_k->value << " prod " << prod;
                 }
             }
         }
     }
 
-    // void VisitStmt_(const SeqStmtNode* stmts){
-    //     for(auto stmt: stmts->seq) {
-    //         VLOG(0) << PrettyPrint(stmt) << std::endl;
-    //         StmtExprVisitor::VisitStmt_(stmt);
-    //     }
-    // }
+    void VisitStmt_(const AttrStmtNode* op) final {
+        if (op->attr_key == tir::attr::thread_extent) {
+            IterVar iv = Downcast<IterVar>(op->node);
+            if (iv->var->name_hint == "threadIdx.x" || iv->thread_tag == "threadIdx.x") {
+                launch_dim_.threadIdx_x_ext = op->value;
+            }
+            if (iv->var->name_hint == "threadIdx.y" || iv->thread_tag == "threadIdx.y") {
+                launch_dim_.threadIdx_y_ext = op->value;
+            }
+            if (iv->var->name_hint == "threadIdx.z" || iv->thread_tag == "threadIdx.z") {
+                launch_dim_.threadIdx_z_ext = op->value;
+            }
+            if(iv->var->name_hint == "blockIdx.x" || iv->thread_tag == "blockIdx.x") {
+                launch_dim_.blockIdx_x_ext = op->value;
+            }
+            if (iv->var->name_hint == "blockIdx.y" || iv->thread_tag == "blockIdx.y") {
+                launch_dim_.blockIdx_y_ext = op->value;
+            }
+            if (iv->var->name_hint == "blockIdx.z" || iv->thread_tag == "blockIdx.z") {
+                launch_dim_.blockIdx_z_ext = op->value;
+            }
+        }
+        StmtVisitor::VisitStmt_(op);
+  }
 
     // void VisitStmt_(const EvaluateNode* op) {
     //     VLOG(0) << PrettyPrint(op->value) << std::endl;
@@ -381,15 +425,11 @@ private:
     std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> shared_memory_map_;
     std::unordered_map<Var, Allocate, ObjectPtrHash, ObjectPtrEqual> global_memory_map_;
     Map<tir::Var, Buffer> func_buffer_map_;
-    
-    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> local_memory_map_;
-    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> tensor_register_map_;
-    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> shared_memory_map_;
-    // std::unordered_map<Var, Buffer, ObjectPtrHash, ObjectPtrEqual> global_memory_map_;
     arith::Analyzer analyzer_;
     LoopNest loop_nest_ = {};
     bool extract_hardware_;
-    Feature feature_;
+    BlockFeature feature_;
+    LaunchDim launch_dim_;
 };
 
 } // namespace tir

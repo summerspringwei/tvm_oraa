@@ -562,6 +562,10 @@ Array<State> SketchPolicyNode::EvolutionarySearch(const Array<State>& init_popul
         if (pop_scores[i] > max_score) {
           max_score = pop_scores[i];
         }
+        // std::cout << "heap: ";
+        // for(auto& sts: heap){
+        //   std::cout << sts.second << " ";
+        // }std::cout << std::endl;
       }
     }
 

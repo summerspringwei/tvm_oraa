@@ -268,33 +268,39 @@ def identity(data: np.ndarray):
     return data
 
 
-def preprocessing_func_mapping():
-    return [
-        # Feature group 1: Launch dim
+def preprocessing_func_mapping(mask = None):
+    # Feature group 1: Launch dim
+    launch_dim_features = [
         ("launch__grid_size", (normalize_to,
-         ("device__attribute_multiprocessor_count", ))),
+        ("device__attribute_multiprocessor_count", ))),
         ("launch__block_size", (normalize_to, (256, ))),
         ("launch__waves_per_multiprocessor", (self_normalize, )),# limit blocks
-        
-        # Feature group 2: Global and shared memory read/write
-        # ("dram__bytes.sum.peak_sustained", (self_normalize, )),
-        # ("dram__bytes.sum.per_second", (self_normalize, )),
-        # ("dram__bytes_read.sum", (self_normalize, )),
-        # ("dram__sectors_read.sum", (self_normalize, )),
-        # ("dram__sectors_write.sum", (self_normalize, )),
-        # ("sass__inst_executed_shared_loads", (self_normalize, )),
-        # ("sass__inst_executed_shared_stores", (self_normalize, )),
-        # ("smsp__inst_executed_op_ldsm.sum", (self_normalize, )),
-        # ("smsp__inst_executed_op_shared_atom.sum", (self_normalize, )),
-        # ("smsp__inst_executed_op_global_red.sum", (self_normalize, )),
-        
-        # Feature group 3: bank confilicts
+    ]
+
+    # Feature group 2: Global and shared memory read/write
+    load_store_features = [
+        ("dram__bytes.sum.peak_sustained", (self_normalize, )),
+        ("dram__bytes.sum.per_second", (self_normalize, )),
+        ("dram__bytes_read.sum", (self_normalize, )),
+        ("dram__sectors_read.sum", (self_normalize, )),
+        ("dram__sectors_write.sum", (self_normalize, )),
+        ("sass__inst_executed_shared_loads", (self_normalize, )),
+        ("sass__inst_executed_shared_stores", (self_normalize, )),
+        ("smsp__inst_executed_op_ldsm.sum", (self_normalize, )),
+        ("smsp__inst_executed_op_shared_atom.sum", (self_normalize, )),
+        ("smsp__inst_executed_op_global_red.sum", (self_normalize, )),
+    ]
+
+    # Feature group 3: bank confilicts
+    bank_conflict_features = [
         ("l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum", (self_normalize, )),
         ("l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_atom.sum", (self_normalize, )),
         ("l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum", (self_normalize, )),
         ("l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum", (self_normalize, )),
+    ]
 
-        # Feature group 4: Instrunction count
+    # Feature group 4: Instrunction count
+    instruction_count_features = [
         ("l1tex__t_requests_pipe_lsu_mem_global_op_ld.sum", (
             self_normalize, )),
         ("sass__inst_executed_global_loads", (self_normalize, )),
@@ -314,35 +320,52 @@ def preprocessing_func_mapping():
             self_normalize, )),
         ("lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum", (
             self_normalize, )),
-        
-        # Omit the data that we can not static analysis from code
-        # ("dram__bytes_read.sum.pct_of_peak_sustained_elapsed", (
-        #     normalize_to, (100, ))),
-        # ("smsp__inst_executed_op_ldsm.sum.pct_of_peak_sustained_elapsed", (
-        #     normalize_to, (100, ))),
-        # ("dram__cycles_active.avg.pct_of_peak_sustained_elapsed", (
-        #     normalize_to, (100, ))),
-        # ("dram__cycles_elapsed.avg.per_second",
-        #     (self_normalize, )),
-        # ("smsp__inst_executed_op_branch.sum", (self_normalize, )),
-        # ("sm__inst_executed_pipe_cbu_pred_on_any.avg.pct_of_peak_sustained_elapsed", (
-        #     normalize_to, (100, ))),
-        # ("sm__inst_executed_pipe_fma_type_fp16.avg.pct_of_peak_sustained_active", (
-        #     normalize_to, (100, ))),
-        # ("sm__inst_executed_pipe_fp64.avg.pct_of_peak_sustained_active", (
-        #     normalize_to, (100, ))),
-        # ("sm__inst_executed_pipe_ipa.avg.pct_of_peak_sustained_elapsed", (
-        #     normalize_to, (100, ))),
-        # ("sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active", (
-        #     normalize_to, (100, ))),
-        # ("sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_elapsed", (
-        #     normalize_to, (100, ))),
-        # ("sm__inst_executed_pipe_tensor_op_hmma.avg.pct_of_peak_sustained_active", (
-        #     normalize_to, (100, ))),
-        # Note, latency must be the last one
+    ]
+
+    # For now we omit the data that we can not static analysis from code
+    runtime_features = [
+        ("dram__bytes_read.sum.pct_of_peak_sustained_elapsed", (
+            normalize_to, (100, ))),
+        ("smsp__inst_executed_op_ldsm.sum.pct_of_peak_sustained_elapsed", (
+            normalize_to, (100, ))),
+        ("dram__cycles_active.avg.pct_of_peak_sustained_elapsed", (
+            normalize_to, (100, ))),
+        ("dram__cycles_elapsed.avg.per_second",
+            (self_normalize, )),
+        ("smsp__inst_executed_op_branch.sum", (self_normalize, )),
+        ("sm__inst_executed_pipe_cbu_pred_on_any.avg.pct_of_peak_sustained_elapsed", (
+            normalize_to, (100, ))),
+        ("sm__inst_executed_pipe_fma_type_fp16.avg.pct_of_peak_sustained_active", (
+            normalize_to, (100, ))),
+        ("sm__inst_executed_pipe_fp64.avg.pct_of_peak_sustained_active", (
+            normalize_to, (100, ))),
+        ("sm__inst_executed_pipe_ipa.avg.pct_of_peak_sustained_elapsed", (
+            normalize_to, (100, ))),
+        ("sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active", (
+            normalize_to, (100, ))),
+        ("sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_elapsed", (
+            normalize_to, (100, ))),
+        ("sm__inst_executed_pipe_tensor_op_hmma.avg.pct_of_peak_sustained_active", (
+            normalize_to, (100, ))),
+    ]
+
+    # Note, latency must be the last one
+    latency = [
         ("gpu__time_duration.sum", (
             identity, )),
     ]
+    # Return features according to masks
+    masked_features = []
+    all_features = [launch_dim_features, load_store_features, bank_conflict_features, instruction_count_features]
+    if mask is None:
+        for feature in all_features:
+            masked_features.extend(feature)
+    else:
+        for i, feature in zip(mask, all_features):
+            if i != 0:
+                masked_features.extend(feature)
+
+    return masked_features + latency
 
 
 # def preprocessing_func_mapping():

@@ -359,6 +359,7 @@ class XGBModel(PyCostModel):
     adaptive_training: bool
     last_train_size: int
     validation_record: List[Tuple[str, float]]
+    validation_map: Dict[str, float]
 
     def __init__(
         self,
@@ -404,7 +405,7 @@ class XGBModel(PyCostModel):
         self.adaptive_training = adaptive_training
         self.last_train_size = 0
         self.validation_record = []
-        
+        self.validation_map = {}
 
 
     def load(self, path: str) -> None:
@@ -698,6 +699,11 @@ class XGBModel(PyCostModel):
             )
         ]
         eval_result.sort(key=make_metric_sorter("p-rmse"))
+        for (k, v) in eval_result:
+            if k not in self.validation_map.keys():
+                self.validation_map[k] = [v]
+            else:
+                self.validation_map[k].append(v)
         logger.debug("ys: {}".format(ys))
         logger.debug("ys_pred: {}".format(ys_pred))
         return eval_result

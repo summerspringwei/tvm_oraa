@@ -53,6 +53,7 @@ class MetaSchedulerRunnerAndAnalyzer:
         cost_model=cost_model,
         max_trials_global=max_trials_global,
         max_trials_per_task=max_trials_per_task,
+        num_trials_per_iter=8,
         num_tuning_cores="logical",
         path_to_trained_cost_model=path_to_trained_model,
         path_to_save_cost_model= self.path_to_save_model if save else None,
@@ -130,10 +131,11 @@ if __name__=="__main__":
      "matmul_m384k768n768_from_scratch", my_matmul, (384, 768, 768), 
      gpu_name="geforce-rtx-3090",
     #  work_dir="saved_work_dir/matmul_m384k768n768_from_bert_trained_mlp_with_rank_error_count"
-     work_dir="saved_work_dir/feature_extractor_test_64"
+     work_dir="saved_work_dir/tmp_feature_extractor_test_64"
      )
   # tool.run_ms_tune("xgb", 2000, 2000, path_to_trained_model="saved_cost_model/cost_model_saved_matmul_m384k768n768_xgboost")
-  tool.run_ms_tune("mlp", 64, 64, path_to_trained_model="saved_work_dir/((bert_large,[(1,64)]),cuda)_ms_workdir/mlp_model_state")
+  tool.run_ms_tune("xgb", 16, 16)
+  # tool.run_ms_tune("mlp", 128, 128, path_to_trained_model="saved_work_dir/((bert_large,[(1,64)]),cuda)_ms_workdir/mlp_model_state")
   # baseline = tool.load_npy_latency_us("np_data/ms_work_dir_matmul_m384k768n768_run_secs_xgboost.npy")
   # pretrain = tool.load_npy_latency_us("np_data/ms_work_dir_matmul_m384k768n768_run_secs_with_pretrain_model_xgboost.npy")
   # tool.draw_data_arr_compares([baseline, pretrain], offset=200)

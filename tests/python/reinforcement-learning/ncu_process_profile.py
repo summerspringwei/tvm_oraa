@@ -73,7 +73,7 @@ def gather_metrics():
     return metrics_list
 
 
-def prepare_profile_data(extracted_data_frame: pd.DataFrame):
+def normalize_profile_data(extracted_data_frame: pd.DataFrame, feature_mask: List[int] = None):
     limited_blocks_all = extracted_data_frame.loc[:, [
         "launch__occupancy_limit_blocks",
         "launch__occupancy_limit_registers",
@@ -86,7 +86,7 @@ def prepare_profile_data(extracted_data_frame: pd.DataFrame):
     processed_ndarray = [limited_blocks]
     logging.info(limited_blocks.shape)
     headers = set(extracted_data_frame.columns)
-    for (metric, func_args_tuple) in ncu_metrics_utils.preprocessing_func_mapping():
+    for (metric, func_args_tuple) in ncu_metrics_utils.preprocessing_func_mapping(feature_mask):
         if metric not in headers:
             logging.warning(f"{metric} not in preprocessing function mappings")
             continue
@@ -131,10 +131,10 @@ def average_record(data_array: np.ndarray, num_repeat: int):
     return np.average(com, axis=0)
 
 
-def preprocess_profile_data(data_frame: pd.DataFrame, num_average: int = 1):
+def preprocess_profile_data(data_frame: pd.DataFrame, num_average: int = 1, feature_mask: List[int] = None):
     # 3. Normalize x-data
-    features_ndarray = prepare_profile_data(
-        data_frame).squeeze().transpose()
+    features_ndarray = normalize_profile_data(
+        data_frame, feature_mask).squeeze().transpose()
     # 4. Concatenate x and y
     logging.info(
         f"x_shape: {features_ndarray.shape}")
@@ -162,7 +162,7 @@ def extract_and_save_data_frame(xlsx_file_path: str):
     return extracted_data_frame
 
 
-def load_and_preprocess_profile_data(xlsx_file_path: str, num_average: int = 1):
+def load_and_preprocess_profile_data(xlsx_file_path: str, num_average: int = 1, feature_mask: List[int] = None):
     dirname = os.path.dirname(xlsx_file_path)
     basename = os.path.basename(xlsx_file_path)
     new_name = os.path.join(dirname, "extracted_"+basename)
@@ -173,7 +173,7 @@ def load_and_preprocess_profile_data(xlsx_file_path: str, num_average: int = 1):
         logging.info(f"Extract from {xlsx_file_path}")
         data_frame = extract_and_save_data_frame(xlsx_file_path)
     
-    return preprocess_profile_data(data_frame)
+    return preprocess_profile_data(data_frame, num_average=num_average, feature_mask=feature_mask)
 
 
 def train_mlp(features: List[np.ndarray], labels: np.ndarray, folder_path: str, state_to_load: str = None):
@@ -230,14 +230,15 @@ def xgb_train_and_validate(train_dataset: List[Tuple[List[np.ndarray], List[floa
     if state_to_load is not None:
         trainer.load(state_to_load)
     for xs, ys in train_dataset:
-        try:
-            logging.info("Get {} real candidate latency".format(ys.size))
+        # try:
+            # logging.info("Get {} real candidate latency".format(ys.size))
             trainer._train(
                 xs=xs,
                 ys=ys,
             )
-        except Exception:
-            logging.warning(f"Has nan value {xs}")
+        # except Exception as e:
+        #     logging.warning(e)
+        #     logging.warning(f"Has nan value {xs}")
 
     for xs, ys in test_dataset:
         # try:
@@ -251,7 +252,7 @@ def xgb_train_and_validate(train_dataset: List[Tuple[List[np.ndarray], List[floa
 
     if state_to_save is not None:
         trainer.save(state_to_save)
-
+    logging.info(trainer.validation_map)
     return trainer
 
 
@@ -267,3 +268,14 @@ def preprocess_all_data_frame(data_frame_list: List[pd.DataFrame], num_average_l
 
 def split_all_train_test(data_frame_list: List[pd.DataFrame], split_ratio_list: List[int]):
     return [split_train_test(feature, label, split_ratio=split_ratio) for (feature, label), split_ratio in zip(data_frame_list, split_ratio_list)]
+
+
+def analyze_validation_result(trainer, top_one_threshold=0.05):
+    a = "top_k_intersection_count@32/128"
+    top_k_average = np.average(trainer.validation_map[a])
+    logging.info(f"Top k average: {top_k_average}")
+    count = 0
+    num_batch = len(trainer.validation_map["top_one_performance_gap@128"])
+    for degration in trainer.validation_map["top_one_performance_gap@128"]:
+        count += 1 if degration < top_one_threshold else 0
+    logging.info(f"Top one performance gap less than {top_one_threshold}: {count}/{num_batch}")
