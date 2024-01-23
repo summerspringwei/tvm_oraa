@@ -1,5 +1,7 @@
 ## Cost Model for Tensor Programs
 
+### [中文版](README_CN.md)
+
 ### How to build from source
 
 Please refer to [Install from Source](https://tvm.apache.org/docs/install/from_source.html).
