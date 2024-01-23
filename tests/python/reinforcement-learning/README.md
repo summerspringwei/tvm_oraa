@@ -3,8 +3,12 @@
 ### [中文版](README_CN.md)
 
 ### How to build from source
-
-Please refer to [Install from Source](https://tvm.apache.org/docs/install/from_source.html).
+Firstly, clone this repo.
+```shell
+git clone https://github.com/summerspringwei/tvm_oraa.git
+git checkout RL-scheduler
+```
+Then, Please refer to [Install from Source](https://tvm.apache.org/docs/install/from_source.html) to build this project.
 
 ### Introduction
 
@@ -51,12 +55,17 @@ refer to `mcu_metrics_utils.py:preprocessing_func_mapping` for detailed explaina
 
 ### Overall Workflow
 
-First, we collect features from tuning records (A tuning record is a series of schedules).
-The tuning records will be lowered down to `tir` and then be compiled to kernels.
-Secondly, We then run the kernels on hardware and collect features from the profile.
-Finally, we train the cost model on the profiling data and validate the accuracy.
+1. Prepare Dataset
+    * we collect features from tuning records (A tuning record is a series of schedules).
+    The tuning records will be lowered down to `tir` and then be compiled to kernels.
+2. Get Tuning Records
+    * Secondly, We then run the kernels on hardware and collect features from the profile.
+3. Run Tuning Records and Collect Profiling Data
+    * we train the cost model on the profiling data and validate the accuracy.
+4. Compare the Accuracy of Cost Model
 
-### Prepare Dataset
+
+### 1. Prepare Dataset
 
 Download tenset dataset:
 ```shell
@@ -66,7 +75,7 @@ unzip dataset_gpu_v3.3.zip
 ```
 Please refer to [get_started_with_cost_model_experiments](https://github.com/tlc-pack/tenset/blob/main/docs/get_started_with_cost_model_experiments.md) for the detailed instructions.
 
-### Get Tuning Records
+### 2. Get Tuning Records
 
 Run the following commands:
 
@@ -77,7 +86,7 @@ python3 tenset_load_datasets_and_tune.py \
 If you want to change the number of tuning trials or cost model,
 run `python3  tenset_load_datasets_and_tune.py --help` to see the detailed arguments.
 
-### Run Tuning Records and Collect Profiling Data
+### 3. Run Tuning Records and Collect Profiling Data
 Run
 ```shell
 ncu --target-processes all \
@@ -87,7 +96,7 @@ ncu --target-processes all \
 ```
 This will run the cuda kernels and collect the features.
 
-### Compare the Accuracy of Cost Model
+### 4. Compare the Accuracy of Cost Model
 Run
 
 ```shell
