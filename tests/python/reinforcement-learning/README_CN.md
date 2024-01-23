@@ -55,10 +55,44 @@
 其次，我们在硬件上运行内核，并从配置文件中收集特征。
 最后，我们根据配置文件上的训练数据训练成本模型并验证准确性。
 
-### 准备数据集
+### 1. 准备数据集
 
 下载张量数据集：
 ```shell
 pip3 install gdown
 gdown https://drive.google.com/uc?id=1jqHbmvXUrLPDCIqJIaPee_atsPc0ZFFK
 unzip dataset_gpu_v3.3.zip
+```
+
+请参考`get_started_with_cost_model_experiments`获取详细说明。
+
+### 2. 获取调优记录
+运行以下命令：
+
+```shell
+python3 tenset_load_datasets_and_tune.py \
+    --task "path/to/dataset_gpu/network_info/((bert_base,[(1,128)]),cuda).task.pkl"
+```
+如果要更改调整试验的次数或成本模型，请运行```python3 tenset_load_datasets_and_tune.py --help```
+查看详细参数。
+
+### 3. 运行调整记录并收集配置文件
+运行
+
+```shell
+ncu --target-processes all \
+    --clock-control none --set full \
+    --csv -o bert_base_1_128_workload_0-ncu \
+    python3 load_database_and_train_cost_model.py
+```
+这将运行CUDA内核并收集特征。
+
+### 4. 比较成本模型的准确性
+运行
+
+```shell
+python3 train_ncu_profile.py
+```
+最后，我们可以得到输出：
+元调度器
+![meta-scheduler](readme_figures/tvm-meta-scheduler-ncu-accuracy.png)
