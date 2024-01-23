@@ -3,8 +3,13 @@
 
 
 ### 如何从源代码构建
-
-请参阅[从源代码安装](https://tvm.apache.org/docs/install/from_source.html)。
+本项目基于TVM构建。
+首先，下载这个仓库.
+```shell
+git clone https://github.com/summerspringwei/tvm_oraa.git
+git checkout RL-scheduler
+```
+之后，请参阅[从源代码安装](https://tvm.apache.org/docs/install/from_source.html)从源码编译安装。
 
 ### 简介
 
